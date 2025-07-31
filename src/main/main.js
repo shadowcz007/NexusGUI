@@ -84,9 +84,20 @@ async function createWindow(config = {}) {
         title: config.title || 'NexusGUI - 动态界面'
     });
 
+
     try {
-        await win.loadFile(path.join(__dirname, '../renderer/index.html'));
-        console.log('✅ HTML 文件加载成功');
+
+        if (config.html) {
+            console.log('📄 使用 HTML 模式渲染');
+            // 直接加载 HTML 内容到渲染窗口
+            win.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(config.html)}`);
+            console.log('✅ HTML 内容已直接加载到渲染窗口');
+
+        } else {
+            await win.loadFile(path.join(__dirname, '../renderer/index.html'));
+            console.log('✅ HTML 文件加载成功');
+        }
+
     } catch (error) {
         console.error('❌ HTML 文件加载失败:', error);
         throw error;
@@ -106,8 +117,7 @@ async function createWindow(config = {}) {
             console.log(`DEBUG: In createWindow, config.html value:`, config.html ? config.html.substring(0, 50) + '...' : 'null/undefined/empty');
             // 检查是否使用 HTML 模式
             if (config.html) {
-                console.log('📄 使用 HTML 模式渲染');
-                win.webContents.send('render-html-gui', config);
+
             } else {
                 console.log('📊 使用组件模式渲染');
                 win.webContents.send('render-dynamic-gui', config);
@@ -137,7 +147,7 @@ async function createWindow(config = {}) {
             isWindowShown = true;
 
             // 发送默认配置
-            win.webContents.send('render-dynamic-gui', config || {
+            if (!config.html && config.components && config.components.length > 0) win.webContents.send('render-dynamic-gui', config || {
                 title: '加载中...',
                 components: [{
                     type: 'heading',
