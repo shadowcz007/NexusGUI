@@ -24,7 +24,8 @@ async function createWindow(config = {}) {
         await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    const win = new BrowserWindow({
+    // 窗口属性配置
+    const windowConfig = {
         width: config.width || 800,
         height: config.height || 600,
         title: config.title || 'NexusGUI - 动态界面',
@@ -34,22 +35,47 @@ async function createWindow(config = {}) {
             preload: path.join(__dirname, 'preload.js')
         },
         show: false,
-        autoHideMenuBar: true,
+        autoHideMenuBar: config.showMenuBar === false ? true : false,
         icon: path.join(__dirname, 'assets', 'icon.png'), // 可选图标
         // 确保窗口在屏幕中央显示
         center: true,
         // 设置最小尺寸
-        minWidth: 400,
-        minHeight: 300,
-        // 确保窗口可见
-        alwaysOnTop: false,
-        skipTaskbar: false,
+        minWidth: config.minWidth || 400,
+        minHeight: config.minHeight || 300,
+        // 设置最大尺寸
+        maxWidth: config.maxWidth,
+        maxHeight: config.maxHeight,
+        // 窗口可见性设置
+        alwaysOnTop: config.alwaysOnTop || false,
+        skipTaskbar: config.skipTaskbar || false,
         // 确保窗口在任务栏显示
-        showInTaskbar: true,
+        showInTaskbar: config.showInTaskbar !== false,
         // 设置窗口位置（屏幕中央）
-        x: undefined,
-        y: undefined
-    });
+        x: config.x,
+        y: config.y,
+        // 窗口样式设置
+        frame: config.frame !== false,
+        titleBarStyle: config.titleBarStyle || 'default',
+        // 窗口行为设置
+        resizable: config.resizable !== false,
+        movable: config.movable !== false,
+        minimizable: config.minimizable !== false,
+        maximizable: config.maximizable !== false,
+        closable: config.closable !== false,
+        // 透明度设置
+        opacity: config.opacity,
+        // 窗口类型设置
+        type: config.windowType || 'normal',
+        // 全屏设置
+        fullscreen: config.fullscreen || false,
+        // 缩放设置
+        zoomFactor: config.zoomFactor
+    };
+
+    console.log('🔍 创建窗口:', config);
+    console.log('📱 窗口配置:', windowConfig);
+
+    const win = new BrowserWindow(windowConfig);
 
     console.log('🔍 创建窗口:', config);
     console.log('📱 窗口配置:', {
@@ -224,13 +250,38 @@ app.whenReady().then(async() => {
                         },
                         {
                             type: 'text',
+                            text: sseServer ? '📍 服务器地址: http://localhost:3000' : '❌ 服务器未启动',
+                            className: 'text-sm text-blue-600 mb-2'
+                        },
+                        {
+                            type: 'text',
+                            text: sseServer ? '🔗 SSE 端点: /mcp' : '',
+                            className: 'text-sm text-blue-600 mb-2'
+                        },
+                        {
+                            type: 'text',
+                            text: sseServer ? '📨 消息端点: /messages' : '',
+                            className: 'text-sm text-blue-600 mb-2'
+                        },
+                        {
+                            type: 'text',
                             text: '✅ 渲染引擎: 已就绪',
                             className: 'text-sm text-green-600 mb-2'
                         },
                         {
                             type: 'text',
                             text: '✅ 组件库: 已加载',
-                            className: 'text-sm text-green-600'
+                            className: 'text-sm text-green-600 mb-2'
+                        },
+                        {
+                            type: 'text',
+                            text: `🖥️ 平台: ${process.platform}`,
+                            className: 'text-sm text-gray-600 mb-2'
+                        },
+                        {
+                            type: 'text',
+                            text: `📦 Node.js: ${process.version}`,
+                            className: 'text-sm text-gray-600'
                         }
                     ]
                 }
