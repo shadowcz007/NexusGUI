@@ -1,6 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { initializeSSEMCPServer } = require('./mcp-server-sse-wrapper.js');
+const { initializeSSEMCPServer } = require('../mcp/sse/wrapper.js');
 
 // __dirname 在 CommonJS 中已经可用
 
@@ -59,7 +59,7 @@ async function createWindow(config = {}) {
     });
 
     try {
-        await win.loadFile('index.html');
+        await win.loadFile(path.join(__dirname, '../renderer/index.html'));
         console.log('✅ HTML 文件加载成功');
     } catch (error) {
         console.error('❌ HTML 文件加载失败:', error);

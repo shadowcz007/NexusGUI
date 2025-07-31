@@ -20,7 +20,7 @@ async function initializeModules() {
         McpError = sdkTypes.McpError;
 
         const sseTransport = await
-        import ('./sse-transport.js');
+        import ('./transport.js');
         SSEServerTransport = sseTransport.SSEServerTransport;
     }
 }
@@ -76,7 +76,7 @@ const getServer = async() => {
 
     const server = new Server({
         name: 'nexusgui-sse-server',
-        version: '5.0.0',
+        version: '0.1.0',
     }, {
         capabilities: {
             tools: {},
@@ -272,7 +272,7 @@ const getServer = async() => {
                     return await handleCreateDialogGUI(args);
 
                 case 'start-notification-stream':
-                    return await handleStartNotificationStream(args, request);
+                    return await handleStartNotificationStream(args, server);
 
                 default:
                     throw new McpError(
@@ -468,20 +468,22 @@ async function handleCreateDialogGUI(args) {
 }
 
 // 处理通知流
-async function handleStartNotificationStream(args, request) {
+async function handleStartNotificationStream(args, server) {
     const { interval = 1000, count = 10 } = args;
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     let counter = 0;
 
     // 发送初始通知
-    if (request.sendNotification) {
-        await request.sendNotification({
+    try {
+        await server.notification({
             method: "notifications/message",
             params: {
                 level: "info",
                 data: `开始通知流，每 ${interval}ms 发送 ${count} 条消息`
             }
         });
+    } catch (error) {
+        console.error("发送初始通知时出错:", error);
     }
 
     // 发送定期通知
@@ -490,15 +492,13 @@ async function handleStartNotificationStream(args, request) {
         await sleep(interval);
 
         try {
-            if (request.sendNotification) {
-                await request.sendNotification({
-                    method: "notifications/message",
-                    params: {
-                        level: "info",
-                        data: `通知 #${counter} - ${new Date().toISOString()}`
-                    }
-                });
-            }
+            await server.notification({
+                method: "notifications/message",
+                params: {
+                    level: "info",
+                    data: `通知 #${counter} - ${new Date().toISOString()}`
+                }
+            });
         } catch (error) {
             console.error("发送通知时出错:", error);
         }
@@ -708,7 +708,7 @@ function createServer(port = 3001) {
             timestamp: new Date().toISOString(),
             sessions: Object.keys(transports).map(id => ({
                 sessionId: id,
-                isConnected: transports[id]?.isConnected || false
+                isConnected: (transports[id] && transports[id].isConnected) || false
             }))
         };
         console.log(`🏥 健康检查:`, healthInfo);
@@ -721,9 +721,9 @@ function createServer(port = 3001) {
             totalSessions: Object.keys(transports).length,
             sessions: Object.keys(transports).map(id => ({
                 sessionId: id,
-                isConnected: transports[id]?.isConnected || false,
-                hasSDKTransport: !!transports[id]?.sdkTransport,
-                sessionIdFromTransport: transports[id]?.sessionId || null
+                isConnected: (transports[id] && transports[id].isConnected) || false,
+                hasSDKTransport: (transports[id] && transports[id].sdkTransport) || false,
+                sessionIdFromTransport: (transports[id] && transports[id].sessionId) || null
             }))
         };
         console.log(`🐛 调试信息:`, debugInfo);

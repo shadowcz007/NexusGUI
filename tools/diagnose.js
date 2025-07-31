@@ -14,12 +14,12 @@ function createDiagnosticWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.js')
+            preload: path.join(__dirname, '../src/main/preload.js')
         }
     });
 
     console.log('📱 加载 index.html...');
-    mainWindow.loadFile('index.html');
+    mainWindow.loadFile(path.join(__dirname, '../src/renderer/index.html'));
 
     mainWindow.webContents.once('did-finish-load', () => {
         console.log('✅ 页面加载完成');
@@ -108,7 +108,7 @@ ipcMain.handle('test-window-creation', async() => {
             show: false
         });
 
-        testWin.loadFile('index.html');
+        testWin.loadFile(path.join(__dirname, '../src/renderer/index.html'));
 
         testWin.webContents.once('did-finish-load', () => {
             testWin.show();

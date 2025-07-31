@@ -4,7 +4,7 @@ let startMCPServer, server;
 async function initializeMCPServer() {
     if (!startMCPServer) {
         const mcpModule = await
-        import ('./mcp-server.mjs');
+        import ('./server.mjs');
         startMCPServer = mcpModule.startMCPServer;
         server = mcpModule.server;
     }

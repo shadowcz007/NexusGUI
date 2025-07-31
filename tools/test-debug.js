@@ -1,4 +1,4 @@
-const { createServer } = require('./mcp-server-sse.js');
+const { createServer } = require('../src/mcp/sse/server.js');
 
 // 启动服务器进行测试
 const { server } = createServer(3000);

@@ -4,7 +4,7 @@ let sseServer;
 async function initializeSSEMCPServer() {
     if (!sseServer) {
         const mcpModule = await
-        import ('./mcp-server-sse.js');
+        import ('./server.js');
         sseServer = mcpModule.createServer;
     }
     return { sseServer };

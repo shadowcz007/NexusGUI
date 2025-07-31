@@ -12,8 +12,8 @@ module.exports = {
     // 覆盖率收集
     collectCoverage: true,
     collectCoverageFrom: [
-        'renderer.js',
-        'mcp-server.mjs',
+        'src/**/*.js',
+        'src/**/*.mjs',
         '!node_modules/**',
         '!dist/**',
         '!build/**'
@@ -31,7 +31,8 @@ module.exports = {
 
     // 模块路径映射
     moduleNameMapping: {
-        '^@/(.*)$': '<rootDir>/$1'
+        '^@/(.*)$': '<rootDir>/$1',
+        'electron': '<rootDir>/test/mocks/electron.js'
     },
 
     // 设置文件
@@ -49,11 +50,6 @@ module.exports = {
     // 转换配置
     transform: {
         '^.+\\.js$': 'babel-jest'
-    },
-
-    // 模拟模块
-    moduleNameMapping: {
-        'electron': '<rootDir>/test/mocks/electron.js'
     },
 
     // 全局变量
