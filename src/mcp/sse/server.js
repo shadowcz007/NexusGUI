@@ -203,9 +203,18 @@ const getServer = async() => {
                                 maximum: 5.0,
                                 default: 1.0
                             },
+                            html: {
+                                type: 'string',
+                                description: '直接传入的 HTML 内容，当提供此参数时将忽略 components 参数',
+                                examples: {
+                                    '简单 HTML': '<h1>Hello World</h1><p>这是一个简单的 HTML 界面</p>',
+                                    '带样式的 HTML': '<div style="padding: 20px; background: #f0f0f0;"><h2>带样式的标题</h2><button onclick="alert(\'点击了按钮\')">点击我</button></div>',
+                                    '复杂 HTML': '<div class="container"><form><label>姓名: <input type="text" name="name"></label><button type="submit">提交</button></form></div>'
+                                }
+                            },
                             components: {
                                 type: 'array',
-                                description: 'GUI 组件数组，支持多种组件类型和嵌套结构',
+                                description: 'GUI 组件数组，支持多种组件类型和嵌套结构（当未提供 html 参数时使用）',
                                 items: {
                                     oneOf: [{
                                             type: 'object',
@@ -513,8 +522,34 @@ const getServer = async() => {
                                 default: {}
                             }
                         },
-                        required: ['components'],
+                        required: [],
                         examples: [{
+                                title: 'HTML 直接渲染',
+                                description: '使用 HTML 字符串直接渲染界面',
+                                value: {
+                                    title: 'HTML 界面示例',
+                                    width: 600,
+                                    height: 400,
+                                    html: `
+                                        <div style="padding: 20px; font-family: Arial, sans-serif;">
+                                            <h1 style="color: #333; text-align: center;">HTML 直接渲染</h1>
+                                            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                                                <h2>功能特点</h2>
+                                                <ul>
+                                                    <li>支持完整的 HTML 语法</li>
+                                                    <li>可以使用内联样式</li>
+                                                    <li>支持 JavaScript 事件</li>
+                                                    <li>完全自定义的界面布局</li>
+                                                </ul>
+                                            </div>
+                                            <button onclick="alert('HTML 按钮被点击了！')" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                                                点击我
+                                            </button>
+                                        </div>
+                                    `
+                                }
+                            },
+                            {
                                 title: '简单表单界面',
                                 description: '创建一个包含输入框、选择框和按钮的表单',
                                 value: {
@@ -642,7 +677,7 @@ async function handleRenderDynamicGUI(args) {
             height = 600,
             // 窗口属性设置
             showMenuBar = false,
-            alwaysOnTop = false,
+            alwaysOnTop = true,
             skipTaskbar = false,
             showInTaskbar = true,
             frame = true,
@@ -658,13 +693,21 @@ async function handleRenderDynamicGUI(args) {
             opacity,
             fullscreen = false,
             zoomFactor = 1.0,
+            html = null,
             components = [],
             data = {},
             callbacks = {}
     } = args;
 
     console.log(`🎨 渲染动态 GUI: ${title}`);
-    console.log(`📊 组件数量: ${components.length}`);
+
+    // 检查是否使用 HTML 模式
+    if (html) {
+        console.log(`📄 使用 HTML 模式渲染，HTML 长度: ${html.length}`);
+        console.log(`📄 HTML 预览: ${html.substring(0, 100)}...`);
+    } else {
+        console.log(`📊 组件模式渲染，组件数量: ${components.length}`);
+    }
 
     // 验证窗口尺寸
     if (width < 200 || width > 2000) {
@@ -674,165 +717,167 @@ async function handleRenderDynamicGUI(args) {
         throw new Error(`窗口高度 ${height} 超出有效范围 (200-2000)`);
     }
 
-    // 验证组件定义
-    try {
-        const validTypes = [
-            'heading', 'text', 'input', 'textarea', 'select',
-            'checkbox', 'radio-group', 'button', 'image', 'divider',
-            'container', 'link', 'progress', 'tag', 'card', 'chart'
-        ];
+    // 验证组件定义（仅在非 HTML 模式下）
+    if (!html) {
+        try {
+            const validTypes = [
+                'heading', 'text', 'input', 'textarea', 'select',
+                'checkbox', 'radio-group', 'button', 'image', 'divider',
+                'container', 'link', 'progress', 'tag', 'card', 'chart'
+            ];
 
-        components.forEach((comp, index) => {
-            if (!comp || typeof comp !== 'object') {
-                throw new Error(`组件 ${index} 不是有效的对象`);
-            }
+            components.forEach((comp, index) => {
+                if (!comp || typeof comp !== 'object') {
+                    throw new Error(`组件 ${index} 不是有效的对象`);
+                }
 
-            if (!comp.type) {
-                throw new Error(`组件 ${index} 缺少 type 属性`);
-            }
+                if (!comp.type) {
+                    throw new Error(`组件 ${index} 缺少 type 属性`);
+                }
 
-            if (!validTypes.includes(comp.type)) {
-                throw new Error(`组件 ${index} 的 type "${comp.type}" 不是有效的组件类型。支持的类型: ${validTypes.join(', ')}`);
-            }
+                if (!validTypes.includes(comp.type)) {
+                    throw new Error(`组件 ${index} 的 type "${comp.type}" 不是有效的组件类型。支持的类型: ${validTypes.join(', ')}`);
+                }
 
-            // 根据组件类型验证必需属性
-            switch (comp.type) {
-                case 'heading':
-                    if (!comp.text) {
-                        throw new Error(`组件 ${index} (heading) 缺少必需的 text 属性`);
-                    }
-                    if (comp.level && (comp.level < 1 || comp.level > 6)) {
-                        throw new Error(`组件 ${index} (heading) 的 level 属性必须在 1-6 之间`);
-                    }
-                    break;
+                // 根据组件类型验证必需属性
+                switch (comp.type) {
+                    case 'heading':
+                        if (!comp.text) {
+                            throw new Error(`组件 ${index} (heading) 缺少必需的 text 属性`);
+                        }
+                        if (comp.level && (comp.level < 1 || comp.level > 6)) {
+                            throw new Error(`组件 ${index} (heading) 的 level 属性必须在 1-6 之间`);
+                        }
+                        break;
 
-                case 'text':
-                    if (!comp.text) {
-                        throw new Error(`组件 ${index} (text) 缺少必需的 text 属性`);
-                    }
-                    break;
+                    case 'text':
+                        if (!comp.text) {
+                            throw new Error(`组件 ${index} (text) 缺少必需的 text 属性`);
+                        }
+                        break;
 
-                case 'input':
-                    if (!comp.label) {
-                        throw new Error(`组件 ${index} (input) 缺少必需的 label 属性`);
-                    }
-                    if (comp.inputType && !['text', 'password', 'email', 'number', 'tel', 'url', 'date', 'time', 'datetime-local'].includes(comp.inputType)) {
-                        throw new Error(`组件 ${index} (input) 的 inputType "${comp.inputType}" 不是有效的输入类型`);
-                    }
-                    break;
+                    case 'input':
+                        if (!comp.label) {
+                            throw new Error(`组件 ${index} (input) 缺少必需的 label 属性`);
+                        }
+                        if (comp.inputType && !['text', 'password', 'email', 'number', 'tel', 'url', 'date', 'time', 'datetime-local'].includes(comp.inputType)) {
+                            throw new Error(`组件 ${index} (input) 的 inputType "${comp.inputType}" 不是有效的输入类型`);
+                        }
+                        break;
 
-                case 'textarea':
-                    if (!comp.label) {
-                        throw new Error(`组件 ${index} (textarea) 缺少必需的 label 属性`);
-                    }
-                    if (comp.rows && (comp.rows < 1 || comp.rows > 20)) {
-                        throw new Error(`组件 ${index} (textarea) 的 rows 属性必须在 1-20 之间`);
-                    }
-                    break;
+                    case 'textarea':
+                        if (!comp.label) {
+                            throw new Error(`组件 ${index} (textarea) 缺少必需的 label 属性`);
+                        }
+                        if (comp.rows && (comp.rows < 1 || comp.rows > 20)) {
+                            throw new Error(`组件 ${index} (textarea) 的 rows 属性必须在 1-20 之间`);
+                        }
+                        break;
 
-                case 'select':
-                    if (!comp.label) {
-                        throw new Error(`组件 ${index} (select) 缺少必需的 label 属性`);
-                    }
-                    if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
-                        throw new Error(`组件 ${index} (select) 缺少必需的 options 属性或选项为空`);
-                    }
-                    break;
+                    case 'select':
+                        if (!comp.label) {
+                            throw new Error(`组件 ${index} (select) 缺少必需的 label 属性`);
+                        }
+                        if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
+                            throw new Error(`组件 ${index} (select) 缺少必需的 options 属性或选项为空`);
+                        }
+                        break;
 
-                case 'checkbox':
-                    if (!comp.label) {
-                        throw new Error(`组件 ${index} (checkbox) 缺少必需的 label 属性`);
-                    }
-                    break;
+                    case 'checkbox':
+                        if (!comp.label) {
+                            throw new Error(`组件 ${index} (checkbox) 缺少必需的 label 属性`);
+                        }
+                        break;
 
-                case 'radio-group':
-                    if (!comp.label) {
-                        throw new Error(`组件 ${index} (radio-group) 缺少必需的 label 属性`);
-                    }
-                    if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
-                        throw new Error(`组件 ${index} (radio-group) 缺少必需的 options 属性或选项为空`);
-                    }
-                    break;
+                    case 'radio-group':
+                        if (!comp.label) {
+                            throw new Error(`组件 ${index} (radio-group) 缺少必需的 label 属性`);
+                        }
+                        if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
+                            throw new Error(`组件 ${index} (radio-group) 缺少必需的 options 属性或选项为空`);
+                        }
+                        break;
 
-                case 'button':
-                    if (!comp.text) {
-                        throw new Error(`组件 ${index} (button) 缺少必需的 text 属性`);
-                    }
-                    if (comp.className && !['btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-warning', 'btn-info'].includes(comp.className)) {
-                        throw new Error(`组件 ${index} (button) 的 className "${comp.className}" 不是有效的按钮样式类`);
-                    }
-                    break;
+                    case 'button':
+                        if (!comp.text) {
+                            throw new Error(`组件 ${index} (button) 缺少必需的 text 属性`);
+                        }
+                        if (comp.className && !['btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-warning', 'btn-info'].includes(comp.className)) {
+                            throw new Error(`组件 ${index} (button) 的 className "${comp.className}" 不是有效的按钮样式类`);
+                        }
+                        break;
 
-                case 'image':
-                    if (!comp.src) {
-                        throw new Error(`组件 ${index} (image) 缺少必需的 src 属性`);
-                    }
-                    break;
+                    case 'image':
+                        if (!comp.src) {
+                            throw new Error(`组件 ${index} (image) 缺少必需的 src 属性`);
+                        }
+                        break;
 
-                case 'link':
-                    if (!comp.text) {
-                        throw new Error(`组件 ${index} (link) 缺少必需的 text 属性`);
-                    }
-                    if (!comp.href) {
-                        throw new Error(`组件 ${index} (link) 缺少必需的 href 属性`);
-                    }
-                    if (comp.target && !['_blank', '_self', '_parent', '_top'].includes(comp.target)) {
-                        throw new Error(`组件 ${index} (link) 的 target "${comp.target}" 不是有效的目标值`);
-                    }
-                    break;
+                    case 'link':
+                        if (!comp.text) {
+                            throw new Error(`组件 ${index} (link) 缺少必需的 text 属性`);
+                        }
+                        if (!comp.href) {
+                            throw new Error(`组件 ${index} (link) 缺少必需的 href 属性`);
+                        }
+                        if (comp.target && !['_blank', '_self', '_parent', '_top'].includes(comp.target)) {
+                            throw new Error(`组件 ${index} (link) 的 target "${comp.target}" 不是有效的目标值`);
+                        }
+                        break;
 
-                case 'progress':
-                    if (comp.value !== undefined && (comp.value < 0 || comp.value > 100)) {
-                        throw new Error(`组件 ${index} (progress) 的 value 属性必须在 0-100 之间`);
-                    }
-                    break;
+                    case 'progress':
+                        if (comp.value !== undefined && (comp.value < 0 || comp.value > 100)) {
+                            throw new Error(`组件 ${index} (progress) 的 value 属性必须在 0-100 之间`);
+                        }
+                        break;
 
-                case 'tag':
-                    if (!comp.text) {
-                        throw new Error(`组件 ${index} (tag) 缺少必需的 text 属性`);
-                    }
-                    if (comp.className && !['tag-default', 'tag-primary', 'tag-success', 'tag-warning', 'tag-danger'].includes(comp.className)) {
-                        throw new Error(`组件 ${index} (tag) 的 className "${comp.className}" 不是有效的标签样式类`);
-                    }
-                    break;
+                    case 'tag':
+                        if (!comp.text) {
+                            throw new Error(`组件 ${index} (tag) 缺少必需的 text 属性`);
+                        }
+                        if (comp.className && !['tag-default', 'tag-primary', 'tag-success', 'tag-warning', 'tag-danger'].includes(comp.className)) {
+                            throw new Error(`组件 ${index} (tag) 的 className "${comp.className}" 不是有效的标签样式类`);
+                        }
+                        break;
 
-                case 'chart':
-                    if (comp.chartType && !['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'].includes(comp.chartType)) {
-                        throw new Error(`组件 ${index} (chart) 的 chartType "${comp.chartType}" 不是有效的图表类型`);
-                    }
-                    break;
+                    case 'chart':
+                        if (comp.chartType && !['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'].includes(comp.chartType)) {
+                            throw new Error(`组件 ${index} (chart) 的 chartType "${comp.chartType}" 不是有效的图表类型`);
+                        }
+                        break;
 
-                case 'container':
-                    // 容器组件可以没有子组件，但如果有子组件，需要递归验证
-                    if (comp.children && Array.isArray(comp.children)) {
-                        comp.children.forEach((childComp, childIndex) => {
-                            if (!childComp.type) {
-                                throw new Error(`容器组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
-                            }
-                        });
-                    }
-                    break;
+                    case 'container':
+                        // 容器组件可以没有子组件，但如果有子组件，需要递归验证
+                        if (comp.children && Array.isArray(comp.children)) {
+                            comp.children.forEach((childComp, childIndex) => {
+                                if (!childComp.type) {
+                                    throw new Error(`容器组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
+                                }
+                            });
+                        }
+                        break;
 
-                case 'card':
-                    // 卡片组件可以没有子组件，但如果有子组件，需要递归验证
-                    if (comp.children && Array.isArray(comp.children)) {
-                        comp.children.forEach((childComp, childIndex) => {
-                            if (!childComp.type) {
-                                throw new Error(`卡片组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
-                            }
-                        });
-                    }
-                    break;
+                    case 'card':
+                        // 卡片组件可以没有子组件，但如果有子组件，需要递归验证
+                        if (comp.children && Array.isArray(comp.children)) {
+                            comp.children.forEach((childComp, childIndex) => {
+                                if (!childComp.type) {
+                                    throw new Error(`卡片组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
+                                }
+                            });
+                        }
+                        break;
 
-                case 'divider':
-                    // 分割线组件不需要额外验证
-                    break;
-            }
-        });
+                    case 'divider':
+                        // 分割线组件不需要额外验证
+                        break;
+                }
+            });
 
-        console.log('✅ 组件验证通过');
-    } catch (error) {
-        throw new Error(`组件验证失败: ${error.message}`);
+            console.log('✅ 组件验证通过');
+        } catch (error) {
+            throw new Error(`组件验证失败: ${error.message}`);
+        }
     }
 
     // 验证回调函数
@@ -879,6 +924,7 @@ async function handleRenderDynamicGUI(args) {
             opacity,
             fullscreen,
             zoomFactor,
+            html,
             components,
             data,
             callbacks

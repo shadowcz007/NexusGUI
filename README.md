@@ -4,6 +4,12 @@
 
 ## 🆕 最新功能
 
+### HTML 直接渲染模式 🆕
+- ✅ 支持直接传入 HTML 字符串进行界面渲染
+- ✅ 完全自定义的界面布局和样式
+- ✅ 支持 JavaScript 事件处理和交互
+- ✅ 与组件模式并存，提供最大灵活性
+
 ### 窗口属性设置
 - ✅ 支持丰富的窗口属性配置（菜单栏、边框、透明度、全屏等）
 - ✅ 详细的系统状态显示（MCP服务器地址、端点信息等）
@@ -80,7 +86,65 @@ node tools/diagnose.js
 
 # 启动 SSE 服务器测试
 node tools/test-debug.js
+
+# 启动 HTML GUI 演示
+node demo-html-gui.js
 ```
+
+## HTML 模式使用
+
+### 基本用法
+
+```javascript
+// 通过 MCP 调用 render-gui 工具
+{
+  "title": "HTML 界面示例",
+  "width": 800,
+  "height": 600,
+  "html": `
+    <div style="padding: 20px;">
+      <h1>Hello World</h1>
+      <p>这是一个 HTML 界面</p>
+      <button onclick="alert('点击了按钮')">点击我</button>
+    </div>
+  `
+}
+```
+
+### 高级功能
+
+```javascript
+{
+  "title": "复杂 HTML 界面",
+  "html": `
+    <div style="padding: 20px; font-family: Arial, sans-serif;">
+      <h1 style="color: #333;">复杂界面示例</h1>
+      
+      <form id="myForm">
+        <input type="text" name="username" placeholder="用户名">
+        <button type="submit">提交</button>
+      </form>
+      
+      <div id="result"></div>
+    </div>
+  `,
+  "callbacks": {
+    "handleSubmit": `
+      const formData = getFormData('#myForm');
+      sendResult({ action: 'submit', data: formData });
+    `
+  }
+}
+```
+
+### 功能特点
+
+- **完整 HTML 支持**: 支持所有 HTML 标签和属性
+- **CSS 样式**: 支持内联样式和外部 CSS
+- **JavaScript 交互**: 支持事件处理和动态交互
+- **表单处理**: 自动提供 `getFormData()` 函数
+- **回调函数**: 支持自定义回调函数注入
+- **数据绑定**: 支持初始数据注入
 
 ## 技术栈
 

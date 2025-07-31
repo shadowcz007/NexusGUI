@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeBtn = document.getElementById('close-error');
     const modal = document.getElementById('error-modal');
 
-    closeBtn?.addEventListener('click', () => {
+    if (closeBtn) closeBtn.addEventListener('click', () => {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     });
@@ -41,10 +41,10 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('✅ electronAPI 可用');
 
     window.electronAPI.on('render-dynamic-gui', (config) => {
-        console.log('🎯 收到 GUI 配置:', config);
+        console.log('🎯 收到组件模式 GUI 配置:', config);
         console.log('📊 配置详情:', {
             title: config.title,
-            componentsCount: config.components?.length || 0,
+            componentsCount: (config.components && config.components.length) || 0,
             hasData: !!config.data,
             hasCallbacks: !!config.callbacks
         });
@@ -56,7 +56,107 @@ window.addEventListener('DOMContentLoaded', () => {
             showError('界面渲染失败', error.message);
         }
     });
+
+    window.electronAPI.on('render-html-gui', (config) => {
+        console.log('🎯 收到 HTML 模式 GUI 配置:', config);
+        console.log('📊 配置详情:', {
+            title: config.title,
+            htmlLength: (config.html && config.html.length) || 0,
+            hasData: !!config.data,
+            hasCallbacks: !!config.callbacks
+        });
+
+        try {
+            renderHTMLGUI(config);
+        } catch (error) {
+            console.error('❌ HTML GUI 渲染失败:', error);
+            showError('HTML 界面渲染失败', error.message);
+        }
+    });
 });
+
+// HTML 渲染函数
+function renderHTMLGUI(config) {
+    console.log('🎨 开始渲染 HTML GUI...');
+
+    // 更新页面标题
+    if (config.title) {
+        document.title = config.title;
+        console.log('📝 页面标题已更新:', config.title);
+    }
+
+    // 获取应用容器
+    const app = document.getElementById('app');
+    if (!app) {
+        throw new Error('找不到应用容器元素 #app');
+    }
+
+    console.log('✅ 找到应用容器');
+
+    // 清空现有内容
+    app.innerHTML = '';
+    console.log('🧹 已清空现有内容');
+
+    // 注入初始数据到全局
+    globalThis.__gui_data__ = config.data || {};
+    console.log('💾 已注入初始数据:', globalThis.__gui_data__);
+
+    // 渲染 HTML 内容
+    if (config.html && typeof config.html === 'string') {
+        console.log(`📄 开始渲染 HTML 内容，长度: ${config.html.length}`);
+
+        try {
+            // 直接设置 HTML 内容
+            app.innerHTML = config.html;
+            console.log('✅ HTML 内容渲染成功');
+
+            // 如果有回调函数，注入到全局
+            if (config.callbacks && typeof config.callbacks === 'object') {
+                Object.entries(config.callbacks).forEach(([name, code]) => {
+                    try {
+                        const fn = new Function('data', 'sendResult', 'getFormData', code);
+                        globalThis[name] = fn;
+                        console.log(`✅ 回调函数 ${name} 已注入到全局`);
+                    } catch (error) {
+                        console.error(`❌ 回调函数 ${name} 注入失败:`, error);
+                    }
+                });
+            }
+
+            // 注入全局工具函数
+            globalThis.sendResult = (result) => {
+                console.log('📤 发送结果到主进程:', result);
+                window.electronAPI.send('mcp-result', result);
+            };
+
+            globalThis.getFormData = (selector = 'body') => {
+                const form = document.querySelector(selector);
+                if (!form) return {};
+
+                const formData = new FormData(form);
+                const data = {};
+                for (let [key, value] of formData.entries()) {
+                    data[key] = value;
+                }
+                return data;
+            };
+
+            console.log('✅ 全局工具函数已注入');
+
+        } catch (error) {
+            console.error('❌ HTML 内容渲染失败:', error);
+            app.innerHTML = `<div class="error-component">
+                <div class="error-title">HTML 渲染失败</div>
+                <div class="error-message">${error.message}</div>
+            </div>`;
+        }
+    } else {
+        console.warn('⚠️ 未提供有效的 HTML 内容');
+        app.innerHTML = '<div class="text-center py-8 text-gray-500">未提供 HTML 内容</div>';
+    }
+
+    console.log('✅ HTML GUI 渲染完成');
+}
 
 // 主渲染函数
 function renderGUI(config) {
@@ -292,7 +392,7 @@ function createComponent(comp, callbacks) {
                 el.className = `btn ${comp.className || 'btn-primary'}`;
                 if (comp.disabled) el.disabled = true;
 
-                const handlerCode = comp.onClick && callbacks?.[comp.onClick];
+                const handlerCode = comp.onClick && callbacks && callbacks[comp.onClick];
                 if (handlerCode) {
                     el.onclick = () => {
                         try {

@@ -35,7 +35,7 @@ async function createWindow(config = {}) {
             preload: path.join(__dirname, 'preload.js')
         },
         show: false,
-        autoHideMenuBar: config.showMenuBar === false ? true : false,
+        titleBarStyle: config.showMenuBar === false ? 'hidden' : 'default',
         icon: path.join(__dirname, 'assets', 'icon.png'), // 可选图标
         // 确保窗口在屏幕中央显示
         center: true,
@@ -101,7 +101,17 @@ async function createWindow(config = {}) {
 
         if (!isWindowShown) {
             isWindowShown = true;
-            win.webContents.send('render-dynamic-gui', config);
+
+            console.log(`DEBUG: In createWindow, config.html type: ${typeof config.html}`);
+            console.log(`DEBUG: In createWindow, config.html value:`, config.html ? config.html.substring(0, 50) + '...' : 'null/undefined/empty');
+            // 检查是否使用 HTML 模式
+            if (config.html) {
+                console.log('📄 使用 HTML 模式渲染');
+                win.webContents.send('render-html-gui', config);
+            } else {
+                console.log('📊 使用组件模式渲染');
+                win.webContents.send('render-dynamic-gui', config);
+            }
 
             // 确保窗口显示并聚焦
             win.show();
@@ -110,7 +120,7 @@ async function createWindow(config = {}) {
             // 将窗口移到前台（短暂置顶）
             win.setAlwaysOnTop(true);
             setTimeout(() => {
-                win.setAlwaysOnTop(false);
+                win.setAlwaysOnTop(config.alwaysOnTop);
                 // 再次确保窗口可见
                 win.show();
                 win.focus();
@@ -142,7 +152,7 @@ async function createWindow(config = {}) {
             win.focus();
             win.setAlwaysOnTop(true);
             setTimeout(() => {
-                win.setAlwaysOnTop(false);
+                win.setAlwaysOnTop(config.alwaysOnTop);
             }, 500);
 
             console.log('✅ 窗口已强制显示');
