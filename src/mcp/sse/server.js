@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { z } = require('zod');
+const fs = require('fs');
+const path = require('path');
 
 // Dynamic imports for ES modules
 let Server, SSEServerTransport, CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError;
@@ -205,294 +207,14 @@ const getServer = async() => {
                             },
                             html: {
                                 type: 'string',
-                                description: '直接传入的 HTML 内容，当提供此参数时将忽略 components 参数',
+                                description: 'HTML 内容输入，支持文件路径或 HTML 字符串。优先级：1. HTML 文件路径（如 ./index.html）2. HTML 字符串（如 <div>内容</div>）',
                                 examples: {
-                                    '简单 HTML': '<h1>Hello World</h1><p>这是一个简单的 HTML 界面</p>',
-                                    '带样式的 HTML': '<div style="padding: 20px; background: #f0f0f0;"><h2>带样式的标题</h2><button onclick="alert(\'点击了按钮\')">点击我</button></div>',
-                                    '复杂 HTML': '<div class="container"><form><label>姓名: <input type="text" name="name"></label><button type="submit">提交</button></form></div>'
-                                }
-                            },
-                            components: {
-                                type: 'array',
-                                description: 'GUI 组件数组，支持多种组件类型和嵌套结构（当未提供 html 参数时使用）',
-                                items: {
-                                    oneOf: [{
-                                            type: 'object',
-                                            title: '标题组件',
-                                            properties: {
-                                                type: { const: 'heading' },
-                                                text: { type: 'string', description: '标题文本内容' },
-                                                level: {
-                                                    type: 'number',
-                                                    description: '标题级别 (1-6)',
-                                                    minimum: 1,
-                                                    maximum: 6,
-                                                    default: 2
-                                                },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'text']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '文本组件',
-                                            properties: {
-                                                type: { const: 'text' },
-                                                text: { type: 'string', description: '文本内容' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'text']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '输入框组件',
-                                            properties: {
-                                                type: { const: 'input' },
-                                                label: { type: 'string', description: '标签文本' },
-                                                name: { type: 'string', description: '字段名称，用于数据绑定' },
-                                                inputType: {
-                                                    type: 'string',
-                                                    description: '输入类型',
-                                                    enum: ['text', 'password', 'email', 'number', 'tel', 'url', 'date', 'time', 'datetime-local'],
-                                                    default: 'text'
-                                                },
-                                                placeholder: { type: 'string', description: '占位符文本' },
-                                                value: { type: 'string', description: '初始值' },
-                                                required: { type: 'boolean', description: '是否必填', default: false },
-                                                disabled: { type: 'boolean', description: '是否禁用', default: false },
-                                                maxLength: { type: 'number', description: '最大长度' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'label']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '文本域组件',
-                                            properties: {
-                                                type: { const: 'textarea' },
-                                                label: { type: 'string', description: '标签文本' },
-                                                name: { type: 'string', description: '字段名称' },
-                                                rows: { type: 'number', description: '行数', default: 3 },
-                                                placeholder: { type: 'string', description: '占位符文本' },
-                                                value: { type: 'string', description: '初始值' },
-                                                required: { type: 'boolean', description: '是否必填', default: false },
-                                                disabled: { type: 'boolean', description: '是否禁用', default: false },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'label']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '选择框组件',
-                                            properties: {
-                                                type: { const: 'select' },
-                                                label: { type: 'string', description: '标签文本' },
-                                                name: { type: 'string', description: '字段名称' },
-                                                options: {
-                                                    type: 'array',
-                                                    description: '选项数组，可以是字符串或对象 {value, label, selected}',
-                                                    items: {
-                                                        oneOf: [
-                                                            { type: 'string' },
-                                                            {
-                                                                type: 'object',
-                                                                properties: {
-                                                                    value: { type: 'string' },
-                                                                    label: { type: 'string' },
-                                                                    selected: { type: 'boolean' }
-                                                                }
-                                                            }
-                                                        ]
-                                                    }
-                                                },
-                                                required: { type: 'boolean', description: '是否必填', default: false },
-                                                disabled: { type: 'boolean', description: '是否禁用', default: false },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'label', 'options']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '复选框组件',
-                                            properties: {
-                                                type: { const: 'checkbox' },
-                                                label: { type: 'string', description: '标签文本' },
-                                                name: { type: 'string', description: '字段名称' },
-                                                checked: { type: 'boolean', description: '是否选中', default: false },
-                                                disabled: { type: 'boolean', description: '是否禁用', default: false },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'label']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '单选组组件',
-                                            properties: {
-                                                type: { const: 'radio-group' },
-                                                label: { type: 'string', description: '组标签' },
-                                                name: { type: 'string', description: '字段名称' },
-                                                options: {
-                                                    type: 'array',
-                                                    description: '选项数组，可以是字符串或对象 {value, label, checked}',
-                                                    items: {
-                                                        oneOf: [
-                                                            { type: 'string' },
-                                                            {
-                                                                type: 'object',
-                                                                properties: {
-                                                                    value: { type: 'string' },
-                                                                    label: { type: 'string' },
-                                                                    checked: { type: 'boolean' }
-                                                                }
-                                                            }
-                                                        ]
-                                                    }
-                                                },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'label', 'options']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '按钮组件',
-                                            properties: {
-                                                type: { const: 'button' },
-                                                text: { type: 'string', description: '按钮文本' },
-                                                onClick: { type: 'string', description: '点击事件回调函数名称' },
-                                                className: {
-                                                    type: 'string',
-                                                    description: '按钮样式类',
-                                                    enum: ['btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-warning', 'btn-info'],
-                                                    default: 'btn-primary'
-                                                },
-                                                disabled: { type: 'boolean', description: '是否禁用', default: false }
-                                            },
-                                            required: ['type', 'text']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '图片组件',
-                                            properties: {
-                                                type: { const: 'image' },
-                                                src: { type: 'string', description: '图片源地址' },
-                                                alt: { type: 'string', description: '替代文本' },
-                                                width: { type: 'number', description: '图片宽度' },
-                                                height: { type: 'number', description: '图片高度' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'src']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '分割线组件',
-                                            properties: {
-                                                type: { const: 'divider' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '容器组件',
-                                            properties: {
-                                                type: { const: 'container' },
-                                                children: {
-                                                    type: 'array',
-                                                    description: '子组件数组',
-                                                    items: { type: 'object' }
-                                                },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '链接组件',
-                                            properties: {
-                                                type: { const: 'link' },
-                                                text: { type: 'string', description: '链接文本' },
-                                                href: { type: 'string', description: '链接地址' },
-                                                target: {
-                                                    type: 'string',
-                                                    description: '打开方式',
-                                                    enum: ['_blank', '_self', '_parent', '_top'],
-                                                    default: '_self'
-                                                },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type', 'text', 'href']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '进度条组件',
-                                            properties: {
-                                                type: { const: 'progress' },
-                                                label: { type: 'string', description: '标签文本' },
-                                                value: {
-                                                    type: 'number',
-                                                    description: '进度值 (0-100)',
-                                                    minimum: 0,
-                                                    maximum: 100,
-                                                    default: 0
-                                                },
-                                                showValue: { type: 'boolean', description: '是否显示数值', default: false },
-                                                fillClassName: { type: 'string', description: '进度条填充样式类' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '标签组件',
-                                            properties: {
-                                                type: { const: 'tag' },
-                                                text: { type: 'string', description: '标签文本' },
-                                                className: {
-                                                    type: 'string',
-                                                    description: '标签样式类',
-                                                    enum: ['tag-default', 'tag-primary', 'tag-success', 'tag-warning', 'tag-danger'],
-                                                    default: 'tag-default'
-                                                }
-                                            },
-                                            required: ['type', 'text']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '卡片组件',
-                                            properties: {
-                                                type: { const: 'card' },
-                                                title: { type: 'string', description: '卡片标题' },
-                                                content: { type: 'string', description: '卡片内容' },
-                                                children: {
-                                                    type: 'array',
-                                                    description: '子组件数组',
-                                                    items: { type: 'object' }
-                                                },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type']
-                                        },
-                                        {
-                                            type: 'object',
-                                            title: '图表组件',
-                                            properties: {
-                                                type: { const: 'chart' },
-                                                id: { type: 'string', description: '图表唯一标识' },
-                                                chartType: {
-                                                    type: 'string',
-                                                    description: '图表类型',
-                                                    enum: ['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'],
-                                                    default: 'bar'
-                                                },
-                                                data: { type: 'object', description: '图表数据' },
-                                                options: { type: 'object', description: '图表配置选项' },
-                                                width: { type: 'string', description: '图表宽度', default: '100%' },
-                                                height: { type: 'string', description: '图表高度', default: '400px' },
-                                                className: { type: 'string', description: 'CSS 类名' }
-                                            },
-                                            required: ['type']
-                                        }
-                                    ]
+                                    'HTML 文件路径': './templates/form.html',
+                                    '相对路径': '../ui/dashboard.html',
+                                    '绝对路径': '/Users/user/project/page.html',
+                                    '简单 HTML 字符串': '<h1>Hello World</h1><p>这是一个简单的 HTML 界面</p>',
+                                    '带样式的 HTML 字符串': '<div style="padding: 20px; background: #f0f0f0;"><h2>带样式的标题</h2><button onclick="alert(\'点击了按钮\')">点击我</button></div>',
+                                    '复杂 HTML 字符串': '<div class="container"><form><label>姓名: <input type="text" name="name"></label><button type="submit">提交</button></form></div>'
                                 }
                             },
                             data: {
@@ -527,98 +249,30 @@ const getServer = async() => {
                                 default: false
                             }
                         },
-                        required: [],
+                        required: ['html'],
                         examples: [{
-                                title: 'HTML 直接渲染',
-                                description: '使用 HTML 字符串直接渲染界面',
+                                title: 'HTML 文件路径渲染',
+                                description: '使用 HTML 文件路径渲染界面',
                                 value: {
-                                    title: 'HTML 界面示例',
-                                    width: 600,
-                                    height: 400,
-                                    html: `
-                                        <div style="padding: 20px; font-family: Arial, sans-serif;">
-                                            <h1 style="color: #333; text-align: center;">HTML 直接渲染</h1>
-                                            <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-                                                <h2>功能特点</h2>
-                                                <ul>
-                                                    <li>支持完整的 HTML 语法</li>
-                                                    <li>可以使用内联样式</li>
-                                                    <li>支持 JavaScript 事件</li>
-                                                    <li>完全自定义的界面布局</li>
-                                                </ul>
-                                            </div>
-                                            <button onclick="alert('HTML 按钮被点击了！')" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
-                                                点击我
-                                            </button>
-                                        </div>
-                                    `
-                                }
-                            },
-                            {
-                                title: '简单表单界面',
-                                description: '创建一个包含输入框、选择框和按钮的表单',
-                                value: {
-                                    title: '用户信息表单',
-                                    width: 600,
-                                    height: 400,
-                                    components: [
-                                        { type: 'heading', text: '用户信息', level: 2 },
-                                        { type: 'input', label: '姓名', name: 'userName', required: true },
-                                        { type: 'input', label: '年龄', name: 'userAge', inputType: 'number' },
-                                        { type: 'select', label: '性别', name: 'gender', options: ['男', '女'] },
-                                        { type: 'button', text: '提交', onClick: 'handleSubmit' }
-                                    ],
-                                    callbacks: {
-                                        'handleSubmit': 'sendResult({ action: "submit", data: getFormData() });'
-                                    }
-                                }
-                            },
-                            {
-                                title: '数据展示界面',
-                                description: '创建一个包含卡片、进度条和标签的数据展示界面',
-                                value: {
-                                    title: '数据统计',
+                                    title: 'HTML 文件界面',
                                     width: 800,
                                     height: 600,
-                                    components: [
-                                        { type: 'heading', text: '系统统计', level: 1 },
-                                        { type: 'card', title: 'CPU 使用率', content: '当前系统 CPU 使用情况' },
-                                        { type: 'progress', label: 'CPU 使用率', value: 75, showValue: true },
-                                        { type: 'tag', text: '正常', className: 'tag-success' },
-                                        { type: 'button', text: '刷新数据', onClick: 'refreshData' }
-                                    ],
-                                    callbacks: {
-                                        'refreshData': 'sendResult({ action: "refresh" });'
-                                    }
+                                    html: './templates/dashboard.html'
                                 }
                             },
                             {
-                                title: '高级窗口设置示例',
-                                description: '创建一个带有高级窗口属性设置的界面',
+                                title: 'HTML 字符串渲染',
+                                description: '使用 HTML 字符串直接渲染界面',
                                 value: {
-                                    title: '高级设置界面',
+                                    title: 'HTML 字符串界面',
                                     width: 600,
                                     height: 400,
-                                    showMenuBar: true,
-                                    alwaysOnTop: true,
-                                    frame: false,
-                                    resizable: false,
-                                    opacity: 0.9,
-                                    components: [
-                                        { type: 'heading', text: '高级设置', level: 1 },
-                                        { type: 'text', text: '这是一个带有特殊窗口属性的界面示例', className: 'text-gray-600 mb-4' },
-                                        { type: 'card', title: '窗口属性', content: '无边框、置顶、半透明、固定大小' },
-                                        { type: 'button', text: '关闭', onClick: 'closeWindow' }
-                                    ],
-                                    callbacks: {
-                                        'closeWindow': 'sendResult({ action: "close" });'
-                                    }
+                                    html: '<div style="padding: 20px; font-family: Arial, sans-serif;"><h1 style="color: #333; text-align: center;">HTML 字符串渲染</h1><div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;"><h2>功能特点</h2><ul><li>支持完整的 HTML 语法</li><li>可以使用内联样式</li><li>支持 JavaScript 事件</li><li>完全自定义的界面布局</li></ul></div><button onclick="alert(\'HTML 按钮被点击了！\')" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">点击我</button></div>'
                                 }
                             }
                         ]
                     }
                 },
-
                 {
                     name: 'start-notification-stream',
                     description: '开始发送定期通知',
@@ -674,6 +328,59 @@ const getServer = async() => {
     return server;
 };
 
+// HTML 输入处理函数
+function processHtmlInput(htmlInput) {
+    if (!htmlInput || typeof htmlInput !== 'string') {
+        throw new Error('HTML 输入不能为空且必须是字符串');
+    }
+
+    // 1. 优先判断是否是 HTML 文件地址
+    if (isHtmlFilePath(htmlInput)) {
+        console.log(`📁 检测到 HTML 文件路径: ${htmlInput}`);
+        try {
+            const resolvedPath = path.resolve(htmlInput);
+            const htmlContent = fs.readFileSync(resolvedPath, 'utf8');
+            console.log(`✅ 成功读取 HTML 文件，内容长度: ${htmlContent.length}`);
+            return {
+                type: 'file',
+                path: htmlInput,
+                content: htmlContent
+            };
+        } catch (error) {
+            throw new Error(`读取 HTML 文件失败: ${error.message}`);
+        }
+    }
+    
+    // 2. 其次判断是否是 HTML 字符串
+    if (isHtmlString(htmlInput)) {
+        console.log(`📝 检测到 HTML 字符串，长度: ${htmlInput.length}`);
+        return {
+            type: 'string',
+            content: htmlInput
+        };
+    }
+    
+    throw new Error('无效的 HTML 输入，必须是 HTML 文件路径或 HTML 字符串');
+}
+
+function isHtmlFilePath(input) {
+    // 检查是否是文件路径格式
+    return typeof input === 'string' && 
+           (input.endsWith('.html') || 
+            input.endsWith('.htm') ||
+            input.includes('/') || 
+            input.includes('\\')) &&
+           !input.includes('<') && 
+           !input.includes('>');
+}
+
+function isHtmlString(input) {
+    // 检查是否包含 HTML 标签
+    return typeof input === 'string' && 
+           input.includes('<') && 
+           input.includes('>');
+}
+
 // 处理动态 GUI 渲染
 async function handleRenderDynamicGUI(args) {
     const {
@@ -699,7 +406,6 @@ async function handleRenderDynamicGUI(args) {
             fullscreen = false,
             zoomFactor = 1.0,
             html = null,
-            components = [],
             data = {},
             callbacks = {},
             reuseWindow = false
@@ -707,12 +413,26 @@ async function handleRenderDynamicGUI(args) {
 
     console.log(`🎨 渲染动态 GUI: ${title}`);
 
-    // 检查是否使用 HTML 模式
+    // 处理 HTML 输入（按优先级）
+    let processedHtml = null;
+    let inputType = 'none';
+    
     if (html) {
-        console.log(`📄 使用 HTML 模式渲染，HTML 长度: ${html.length}`);
-        console.log(`📄 HTML 预览: ${html.substring(0, 100)}...`);
+        try {
+            const result = processHtmlInput(html);
+            processedHtml = result.content;
+            inputType = result.type;
+            
+            if (result.type === 'file') {
+                console.log(`📁 使用 HTML 文件: ${result.path}`);
+            } else {
+                console.log(`📝 使用 HTML 字符串，长度: ${processedHtml.length}`);
+            }
+        } catch (error) {
+            throw new Error(`HTML 输入处理失败: ${error.message}`);
+        }
     } else {
-        console.log(`📊 组件模式渲染，组件数量: ${components.length}`);
+        throw new Error('缺少 html 参数，请提供 HTML 文件路径或 HTML 字符串');
     }
 
     // 验证窗口尺寸
@@ -721,169 +441,6 @@ async function handleRenderDynamicGUI(args) {
     }
     if (height < 200 || height > 2000) {
         throw new Error(`窗口高度 ${height} 超出有效范围 (200-2000)`);
-    }
-
-    // 验证组件定义（仅在非 HTML 模式下）
-    if (!html) {
-        try {
-            const validTypes = [
-                'heading', 'text', 'input', 'textarea', 'select',
-                'checkbox', 'radio-group', 'button', 'image', 'divider',
-                'container', 'link', 'progress', 'tag', 'card', 'chart'
-            ];
-
-            components.forEach((comp, index) => {
-                if (!comp || typeof comp !== 'object') {
-                    throw new Error(`组件 ${index} 不是有效的对象`);
-                }
-
-                if (!comp.type) {
-                    throw new Error(`组件 ${index} 缺少 type 属性`);
-                }
-
-                if (!validTypes.includes(comp.type)) {
-                    throw new Error(`组件 ${index} 的 type "${comp.type}" 不是有效的组件类型。支持的类型: ${validTypes.join(', ')}`);
-                }
-
-                // 根据组件类型验证必需属性
-                switch (comp.type) {
-                    case 'heading':
-                        if (!comp.text) {
-                            throw new Error(`组件 ${index} (heading) 缺少必需的 text 属性`);
-                        }
-                        if (comp.level && (comp.level < 1 || comp.level > 6)) {
-                            throw new Error(`组件 ${index} (heading) 的 level 属性必须在 1-6 之间`);
-                        }
-                        break;
-
-                    case 'text':
-                        if (!comp.text) {
-                            throw new Error(`组件 ${index} (text) 缺少必需的 text 属性`);
-                        }
-                        break;
-
-                    case 'input':
-                        if (!comp.label) {
-                            throw new Error(`组件 ${index} (input) 缺少必需的 label 属性`);
-                        }
-                        if (comp.inputType && !['text', 'password', 'email', 'number', 'tel', 'url', 'date', 'time', 'datetime-local'].includes(comp.inputType)) {
-                            throw new Error(`组件 ${index} (input) 的 inputType "${comp.inputType}" 不是有效的输入类型`);
-                        }
-                        break;
-
-                    case 'textarea':
-                        if (!comp.label) {
-                            throw new Error(`组件 ${index} (textarea) 缺少必需的 label 属性`);
-                        }
-                        if (comp.rows && (comp.rows < 1 || comp.rows > 20)) {
-                            throw new Error(`组件 ${index} (textarea) 的 rows 属性必须在 1-20 之间`);
-                        }
-                        break;
-
-                    case 'select':
-                        if (!comp.label) {
-                            throw new Error(`组件 ${index} (select) 缺少必需的 label 属性`);
-                        }
-                        if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
-                            throw new Error(`组件 ${index} (select) 缺少必需的 options 属性或选项为空`);
-                        }
-                        break;
-
-                    case 'checkbox':
-                        if (!comp.label) {
-                            throw new Error(`组件 ${index} (checkbox) 缺少必需的 label 属性`);
-                        }
-                        break;
-
-                    case 'radio-group':
-                        if (!comp.label) {
-                            throw new Error(`组件 ${index} (radio-group) 缺少必需的 label 属性`);
-                        }
-                        if (!comp.options || !Array.isArray(comp.options) || comp.options.length === 0) {
-                            throw new Error(`组件 ${index} (radio-group) 缺少必需的 options 属性或选项为空`);
-                        }
-                        break;
-
-                    case 'button':
-                        if (!comp.text) {
-                            throw new Error(`组件 ${index} (button) 缺少必需的 text 属性`);
-                        }
-                        if (comp.className && !['btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-warning', 'btn-info'].includes(comp.className)) {
-                            throw new Error(`组件 ${index} (button) 的 className "${comp.className}" 不是有效的按钮样式类`);
-                        }
-                        break;
-
-                    case 'image':
-                        if (!comp.src) {
-                            throw new Error(`组件 ${index} (image) 缺少必需的 src 属性`);
-                        }
-                        break;
-
-                    case 'link':
-                        if (!comp.text) {
-                            throw new Error(`组件 ${index} (link) 缺少必需的 text 属性`);
-                        }
-                        if (!comp.href) {
-                            throw new Error(`组件 ${index} (link) 缺少必需的 href 属性`);
-                        }
-                        if (comp.target && !['_blank', '_self', '_parent', '_top'].includes(comp.target)) {
-                            throw new Error(`组件 ${index} (link) 的 target "${comp.target}" 不是有效的目标值`);
-                        }
-                        break;
-
-                    case 'progress':
-                        if (comp.value !== undefined && (comp.value < 0 || comp.value > 100)) {
-                            throw new Error(`组件 ${index} (progress) 的 value 属性必须在 0-100 之间`);
-                        }
-                        break;
-
-                    case 'tag':
-                        if (!comp.text) {
-                            throw new Error(`组件 ${index} (tag) 缺少必需的 text 属性`);
-                        }
-                        if (comp.className && !['tag-default', 'tag-primary', 'tag-success', 'tag-warning', 'tag-danger'].includes(comp.className)) {
-                            throw new Error(`组件 ${index} (tag) 的 className "${comp.className}" 不是有效的标签样式类`);
-                        }
-                        break;
-
-                    case 'chart':
-                        if (comp.chartType && !['bar', 'line', 'pie', 'doughnut', 'radar', 'polarArea'].includes(comp.chartType)) {
-                            throw new Error(`组件 ${index} (chart) 的 chartType "${comp.chartType}" 不是有效的图表类型`);
-                        }
-                        break;
-
-                    case 'container':
-                        // 容器组件可以没有子组件，但如果有子组件，需要递归验证
-                        if (comp.children && Array.isArray(comp.children)) {
-                            comp.children.forEach((childComp, childIndex) => {
-                                if (!childComp.type) {
-                                    throw new Error(`容器组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
-                                }
-                            });
-                        }
-                        break;
-
-                    case 'card':
-                        // 卡片组件可以没有子组件，但如果有子组件，需要递归验证
-                        if (comp.children && Array.isArray(comp.children)) {
-                            comp.children.forEach((childComp, childIndex) => {
-                                if (!childComp.type) {
-                                    throw new Error(`卡片组件 ${index} 的子组件 ${childIndex} 缺少 type 属性`);
-                                }
-                            });
-                        }
-                        break;
-
-                    case 'divider':
-                        // 分割线组件不需要额外验证
-                        break;
-                }
-            });
-
-            console.log('✅ 组件验证通过');
-        } catch (error) {
-            throw new Error(`组件验证失败: ${error.message}`);
-        }
     }
 
     // 验证回调函数
@@ -905,7 +462,7 @@ async function handleRenderDynamicGUI(args) {
     }
 
     try {
-        console.log('🌐 MCP 调用窗口创建:', { title, width, height, componentsCount: components.length });
+        console.log('🌐 MCP 调用窗口创建:', { title, width, height, inputType });
 
         await global.createWindow({
             type: 'dynamic',
@@ -930,8 +487,7 @@ async function handleRenderDynamicGUI(args) {
             opacity,
             fullscreen,
             zoomFactor,
-            html,
-            components,
+            html: processedHtml,
             data,
             callbacks,
             reuseWindow
@@ -952,11 +508,12 @@ async function handleRenderDynamicGUI(args) {
 
         const windowInfo = windowProps.length > 0 ? `\n🔧 窗口属性: ${windowProps.join(', ')}` : '';
         const reuseInfo = reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
+        const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
 
         return {
             content: [{
                 type: 'text',
-                text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
+                text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
             }]
         };
     } catch (error) {
