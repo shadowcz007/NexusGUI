@@ -1,0 +1,70 @@
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 构建输出
+dist/
+build/
+out/
+
+# 运行时文件
+*.log
+*.pid
+*.seed
+*.pid.lock
+
+# 覆盖率目录
+coverage/
+.nyc_output
+
+# 环境变量文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Electron 特定文件
+app/node_modules/
+app/dist/
+
+# 测试文件
+test-results/
+playwright-report/
+
+# 临时文件
+tmp/
+temp/
+
+# 用户数据
+user-data/
+logs/
+
+# 打包文件
+*.dmg
+*.exe
+*.deb
+*.rpm
+*.tar.gz
+*.zip
+
+# MCP 相关
+mcp-logs/
