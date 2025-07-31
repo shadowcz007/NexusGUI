@@ -9,6 +9,21 @@ let sseServer;
 
 // 统一 GUI 创建函数
 async function createWindow(config = {}) {
+    console.log('🔍 开始创建窗口...');
+
+    // 检查并关闭现有窗口
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+        console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，正在关闭...`);
+        for (const win of existingWindows) {
+            if (!win.isDestroyed()) {
+                win.close();
+            }
+        }
+        // 等待窗口关闭
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
     const win = new BrowserWindow({
         width: config.width || 800,
         height: config.height || 600,
@@ -16,31 +31,160 @@ async function createWindow(config = {}) {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.cjs')
+            preload: path.join(__dirname, 'preload.js')
         },
         show: false,
         autoHideMenuBar: true,
-        icon: path.join(__dirname, 'assets', 'icon.png') // 可选图标
+        icon: path.join(__dirname, 'assets', 'icon.png'), // 可选图标
+        // 确保窗口在屏幕中央显示
+        center: true,
+        // 设置最小尺寸
+        minWidth: 400,
+        minHeight: 300,
+        // 确保窗口可见
+        alwaysOnTop: false,
+        skipTaskbar: false,
+        // 确保窗口在任务栏显示
+        showInTaskbar: true,
+        // 设置窗口位置（屏幕中央）
+        x: undefined,
+        y: undefined
     });
 
-    await win.loadFile('index.html');
+    console.log('🔍 创建窗口:', config);
+    console.log('📱 窗口配置:', {
+        width: config.width || 800,
+        height: config.height || 600,
+        title: config.title || 'NexusGUI - 动态界面'
+    });
+
+    try {
+        await win.loadFile('index.html');
+        console.log('✅ HTML 文件加载成功');
+    } catch (error) {
+        console.error('❌ HTML 文件加载失败:', error);
+        throw error;
+    }
+
+    // 添加超时机制，确保窗口一定会显示
+    let isWindowShown = false;
 
     // 等待页面加载完成后发送配置
     win.webContents.once('did-finish-load', () => {
-        win.webContents.send('render-dynamic-gui', config);
-        win.show();
+        console.log('✅ 页面加载完成，发送配置到渲染进程');
+
+        if (!isWindowShown) {
+            isWindowShown = true;
+            win.webContents.send('render-dynamic-gui', config);
+
+            // 确保窗口显示并聚焦
+            win.show();
+            win.focus();
+
+            // 将窗口移到前台（短暂置顶）
+            win.setAlwaysOnTop(true);
+            setTimeout(() => {
+                win.setAlwaysOnTop(false);
+                // 再次确保窗口可见
+                win.show();
+                win.focus();
+            }, 200);
+
+            console.log('✅ 窗口已显示并聚焦');
+        }
+    });
+
+    // 添加超时机制，如果页面加载超时，强制显示窗口
+    setTimeout(() => {
+        if (!isWindowShown) {
+            console.log('⚠️ 页面加载超时，强制显示窗口');
+            isWindowShown = true;
+
+            // 发送默认配置
+            win.webContents.send('render-dynamic-gui', config || {
+                title: '加载中...',
+                components: [{
+                    type: 'heading',
+                    text: '页面加载中...',
+                    level: 2,
+                    className: 'text-xl text-gray-600'
+                }]
+            });
+
+            // 强制显示窗口
+            win.show();
+            win.focus();
+            win.setAlwaysOnTop(true);
+            setTimeout(() => {
+                win.setAlwaysOnTop(false);
+            }, 500);
+
+            console.log('✅ 窗口已强制显示');
+        }
+    }, 3000); // 3秒超时
+
+    // 调试页面加载失败
+    win.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+        console.error('🔍 页面加载失败:', errorCode, errorDescription);
+    });
+
+    // 添加更多页面加载调试信息
+    win.webContents.on('did-start-loading', () => {
+        console.log('🔄 页面开始加载');
+    });
+
+    win.webContents.on('did-stop-loading', () => {
+        console.log('⏹️ 页面停止加载');
+    });
+
+    win.webContents.on('dom-ready', () => {
+        console.log('📄 DOM 已准备就绪');
     });
 
     // 开发模式下打开开发者工具
     if (process.argv.includes('--dev')) {
         win.webContents.openDevTools();
+        console.log('🔧 开发者工具已打开');
     }
+
+    // 监听窗口事件
+    win.on('ready-to-show', () => {
+        console.log('✅ 窗口准备显示');
+    });
+
+    win.on('show', () => {
+        console.log('✅ 窗口已显示');
+    });
+
+    win.on('focus', () => {
+        console.log('✅ 窗口已聚焦');
+    });
+
+    // 监听窗口关闭事件
+    win.on('closed', () => {
+        console.log('✅ 窗口已关闭');
+    });
 
     return win;
 }
 
 // 暴露给全局，供 MCP 服务器调用
-global.createWindow = createWindow;
+global.createWindow = async(config = {}) => {
+    console.log('🌐 通过 MCP 调用创建窗口');
+
+    // 检查是否已有窗口，如果有则关闭
+    const existingWindows = BrowserWindow.getAllWindows();
+    if (existingWindows.length > 0) {
+        console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，正在关闭...`);
+        existingWindows.forEach(win => {
+            if (!win.isDestroyed()) {
+                win.close();
+            }
+        });
+    }
+
+    return await createWindow(config);
+};
 
 app.whenReady().then(async() => {
     // 初始化 SSE MCP 服务器
@@ -116,6 +260,21 @@ ipcMain.handle('mcp-result', async(event, result) => {
     console.log('📤 收到来自渲染进程的结果:', result);
     // 这里可以将结果发送回 MCP 客户端
     return { success: true };
+});
+
+// 添加窗口状态检查
+ipcMain.handle('check-window-status', async() => {
+    const windows = BrowserWindow.getAllWindows();
+    return {
+        windowCount: windows.length,
+        windows: windows.map(win => ({
+            id: win.id,
+            title: win.getTitle(),
+            isVisible: win.isVisible(),
+            isDestroyed: win.isDestroyed(),
+            bounds: win.getBounds()
+        }))
+    };
 });
 
 ipcMain.handle('get-form-data', async(event, formSelector) => {

@@ -23,6 +23,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return ipcRenderer.invoke('get-form-data', formSelector);
     },
 
+    // 检查窗口状态
+    checkWindowStatus: () => {
+        return ipcRenderer.invoke('check-window-status');
+    },
+
+    // 测试窗口创建
+    testWindowCreation: () => {
+        return ipcRenderer.invoke('test-window-creation');
+    },
+
+    // 检查系统信息
+    checkSystemInfo: () => {
+        return ipcRenderer.invoke('check-system-info');
+    },
+
     // 移除监听器
     removeAllListeners: (channel) => {
         const validChannels = ['render-dynamic-gui'];

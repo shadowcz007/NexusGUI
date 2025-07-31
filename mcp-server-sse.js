@@ -317,36 +317,36 @@ async function handleRenderDynamicGUI(args) {
         throw new Error(`组件验证失败: ${error.message}`);
     }
 
-    // 调用主进程创建窗口
-    if (global.createWindow) {
-        try {
-            await global.createWindow({
-                type: 'dynamic',
-                title,
-                width,
-                height,
-                components,
-                data,
-                callbacks
-            });
+    // 统一调用主进程创建窗口
+    if (!global.createWindow) {
+        // 如果在非 Electron 环境中运行，则抛出错误
+        throw new Error('当前环境不支持窗口创建，请在 Electron 主进程中运行。');
+    }
 
-            return {
-                content: [{
-                    type: 'text',
-                    text: `✅ 动态界面 "${title}" 已成功渲染\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}`
-                }]
-            };
-        } catch (error) {
-            throw new Error(`窗口创建失败: ${error.message}`);
-        }
-    } else {
-        // 在 SSE 模式下，返回成功消息而不是实际创建窗口
+    try {
+        console.log('🌐 MCP 调用窗口创建:', { title, width, height, componentsCount: components.length });
+
+        await global.createWindow({
+            type: 'dynamic',
+            title,
+            width,
+            height,
+            components,
+            data,
+            callbacks
+        });
+
+        console.log('✅ MCP 窗口创建成功');
+
         return {
             content: [{
                 type: 'text',
-                text: `✅ 动态界面 "${title}" 已成功渲染\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}\n🌐 SSE 模式：界面定义已通过 SSE 传输`
+                text: `✅ 动态界面 "${title}" 已成功创建并渲染\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}\n📍 窗口已显示在屏幕中央`
             }]
         };
+    } catch (error) {
+        console.error('❌ MCP 窗口创建失败:', error);
+        throw new Error(`窗口创建失败: ${error.message}`);
     }
 }
 
@@ -520,7 +520,7 @@ app.use(cors({
     origin: function(origin, callback) {
         // 允许所有来源，或者你可以指定特定的域名
         // 例如: ['http://localhost:3000', 'http://localhost:8080']
-        console.log(`🌐 CORS 请求来源: ${origin}`);
+        // console.log(`🌐 CORS 请求来源: ${origin}`);
         callback(null, true);
     },
     credentials: true, // 允许携带凭证
@@ -532,8 +532,8 @@ app.use(cors({
 
 // 增加详细的请求日志中间件
 app.use((req, res, next) => {
-    console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log(`📋 Headers:`, JSON.stringify(req.headers, null, 2));
+    // console.log(`📥 [${new Date().toISOString()}] ${req.method} ${req.url}`);
+    // console.log(`📋 Headers:`, JSON.stringify(req.headers, null, 2));
     if (req.body && Object.keys(req.body).length > 0) {
         console.log(`📦 Body:`, JSON.stringify(req.body, null, 2));
     }
@@ -550,7 +550,7 @@ app.use('/messages', (req, res, next) => {
 app.use((req, res, next) => {
     if (req.path !== '/messages') {
         express.json({
-            limit: '10mb',
+            limit: '50mb',
             verify: (req, res, buf) => {
                 // 记录原始请求体用于调试
                 if (buf.length > 0) {
@@ -570,9 +570,9 @@ const transports = {};
 function createServer(port = 3001) {
     // SSE 端点：建立流连接
     app.get('/mcp', async(req, res) => {
-        console.log('收到 GET 请求到 /mcp (建立 SSE 流)');
-        console.log(`🔍 Query parameters:`, req.query);
-        console.log(`🔍 Request headers:`, req.headers);
+        // console.log('收到 GET 请求到 /mcp (建立 SSE 流)');
+        // console.log(`🔍 Query parameters:`, req.query);
+        // console.log(`🔍 Request headers:`, req.headers);
 
         try {
             // 确保模块已初始化
@@ -580,11 +580,11 @@ function createServer(port = 3001) {
 
             // 为客户端创建新的 SSE 传输层
             const transport = new SSEServerTransport('/messages', res);
-            console.log(`🔧 创建新的 SSE 传输层实例`);
+            // console.log(`🔧 创建新的 SSE 传输层实例`);
 
             // 设置关闭处理器
             transport.onclose = () => {
-                console.log(`SSE 传输层已关闭，会话 ID: ${transport.sessionId}`);
+                // console.log(`SSE 传输层已关闭，会话 ID: ${transport.sessionId}`);
                 if (transport.sessionId) {
                     delete transports[transport.sessionId];
                     console.log(`🗑️ 已从传输层存储中删除会话 ${transport.sessionId}`);
@@ -598,11 +598,11 @@ function createServer(port = 3001) {
 
             // 连接传输层到 MCP 服务器
             const server = await getServer();
-            console.log(`🔗 正在连接传输层到 MCP 服务器...`);
+            // console.log(`🔗 正在连接传输层到 MCP 服务器...`);
             await server.connect(transport);
 
             // 启动传输层
-            console.log(`🚀 正在启动传输层...`);
+            // console.log(`🚀 正在启动传输层...`);
             await transport.start();
 
             // 按会话 ID 存储传输层（在连接后获取 sessionId）
@@ -627,23 +627,23 @@ function createServer(port = 3001) {
 
     // 消息端点：接收客户端 JSON-RPC 请求
     app.post('/messages', async(req, res) => {
-        console.log('📨 收到 POST 请求到 /messages');
-        console.log(`🔍 URL: ${req.url}`);
-        console.log(`🔍 Query:`, req.query);
-        console.log(`🔍 Headers:`, req.headers);
+        // console.log('📨 收到 POST 请求到 /messages');
+        // console.log(`🔍 URL: ${req.url}`);
+        // console.log(`🔍 Query:`, req.query);
+        // console.log(`🔍 Headers:`, req.headers);
 
         // 记录原始请求体（现在是原始流）
-        if (req.body) {
-            if (Buffer.isBuffer(req.body)) {
-                console.log(`🔍 Raw request body:`, req.body.toString());
-            } else {
-                console.log(`🔍 Raw request body:`, req.body);
-            }
-        }
+        // if (req.body) {
+        //     if (Buffer.isBuffer(req.body)) {
+        //         console.log(`🔍 Raw request body:`, req.body.toString());
+        //     } else {
+        //         console.log(`🔍 Raw request body:`, req.body);
+        //     }
+        // }
 
         // 从 URL 查询参数提取会话 ID
         const sessionId = req.query.sessionId;
-        console.log(`🔍 提取的会话 ID: ${sessionId}`);
+        // console.log(`🔍 提取的会话 ID: ${sessionId}`);
 
         if (!sessionId) {
             console.error('❌ 请求 URL 中未提供会话 ID');
@@ -658,8 +658,8 @@ function createServer(port = 3001) {
         }
 
         const transport = transports[sessionId];
-        console.log(`🔍 查找会话 ${sessionId} 的传输层:`, transport ? '找到' : '未找到');
-        console.log(`📊 当前所有会话 ID:`, Object.keys(transports));
+        // console.log(`🔍 查找会话 ${sessionId} 的传输层:`, transport ? '找到' : '未找到');
+        // console.log(`📊 当前所有会话 ID:`, Object.keys(transports));
 
         if (!transport) {
             console.error(`❌ 未找到会话 ID 为 ${sessionId} 的活动传输层`);
@@ -673,18 +673,18 @@ function createServer(port = 3001) {
             return;
         }
 
-        console.log(`✅ 找到传输层，正在处理请求...`);
-        console.log(`🔍 传输层状态:`, {
-            isConnected: transport.isConnected,
-            sessionId: transport.sessionId,
-            hasSDKTransport: !!transport.sdkTransport
-        });
+        // console.log(`✅ 找到传输层，正在处理请求...`);
+        // console.log(`🔍 传输层状态:`, {
+        //     isConnected: transport.isConnected,
+        //     sessionId: transport.sessionId,
+        //     hasSDKTransport: !!transport.sdkTransport
+        // });
 
         try {
             // 使用传输层处理 POST 消息
-            console.log(`🔄 调用传输层的 handlePostMessage 方法...`);
+            // console.log(`🔄 调用传输层的 handlePostMessage 方法...`);
             await transport.handlePostMessage(req, res, req.body);
-            console.log(`✅ 传输层处理完成`);
+            // console.log(`✅ 传输层处理完成`);
         } catch (error) {
             console.error('❌ 处理请求时出错:', error);
             console.error('❌ 错误堆栈:', error.stack);
