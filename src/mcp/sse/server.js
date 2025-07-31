@@ -84,11 +84,11 @@ const getServer = async() => {
         },
     });
 
-    // 注册工具：render-dynamic-gui
+    // 注册工具：render-gui
     server.setRequestHandler(ListToolsRequestSchema, async() => {
         return {
             tools: [{
-                    name: 'render-dynamic-gui',
+                    name: 'render-gui',
                     description: '渲染动态 GUI 界面，支持多种组件类型和交互功能，以及丰富的窗口属性设置。支持组件类型：heading(标题)、text(文本)、input(输入框)、textarea(文本域)、select(选择框)、checkbox(复选框)、radio-group(单选组)、button(按钮)、image(图片)、divider(分割线)、container(容器)、link(链接)、progress(进度条)、tag(标签)、card(卡片)、chart(图表)。窗口属性包括：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。',
                     inputSchema: {
                         type: 'object',
@@ -608,7 +608,7 @@ const getServer = async() => {
 
         try {
             switch (name) {
-                case 'render-dynamic-gui':
+                case 'render-gui':
                     return await handleRenderDynamicGUI(args);
 
 
