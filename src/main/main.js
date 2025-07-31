@@ -11,17 +11,96 @@ let sseServer;
 async function createWindow(config = {}) {
     console.log('🔍 开始创建窗口...');
 
-    // 检查并关闭现有窗口
-    const existingWindows = BrowserWindow.getAllWindows();
-    if (existingWindows.length > 0) {
-        console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，正在关闭...`);
-        for (const win of existingWindows) {
-            if (!win.isDestroyed()) {
-                win.close();
+    // 检查是否复用现有窗口
+    const reuseWindow = config.reuseWindow || false;
+
+    if (reuseWindow) {
+        // 尝试复用现有窗口
+        const existingWindows = BrowserWindow.getAllWindows();
+        if (existingWindows.length > 0) {
+            console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，尝试复用...`);
+
+            // 找到第一个可用的窗口
+            for (const win of existingWindows) {
+                if (!win.isDestroyed()) {
+                    console.log(`✅ 复用现有窗口: ${win.getTitle()}`);
+
+                    // 更新窗口配置
+                    if (config.width && config.height) {
+                        win.setSize(config.width, config.height);
+                    }
+                    if (config.title) {
+                        win.setTitle(config.title);
+                    }
+                    if (config.alwaysOnTop !== undefined) {
+                        win.setAlwaysOnTop(config.alwaysOnTop);
+                    }
+                    if (config.opacity !== undefined) {
+                        win.setOpacity(config.opacity);
+                    }
+                    if (config.fullscreen !== undefined) {
+                        win.setFullScreen(config.fullscreen);
+                    }
+                    if (config.zoomFactor !== undefined) {
+                        win.webContents.setZoomFactor(config.zoomFactor);
+                    }
+
+                    // 重新加载内容
+                    try {
+                        if (config.html) {
+                            console.log('📄 使用 HTML 模式重新渲染');
+                            win.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(config.html)}`);
+                        } else {
+                            await win.loadFile(path.join(__dirname, '../renderer/index.html'));
+                            console.log('✅ HTML 文件重新加载成功');
+                        }
+
+                        // 等待页面加载完成后发送配置
+                        win.webContents.once('did-finish-load', () => {
+                            console.log('✅ 页面重新加载完成，发送配置到渲染进程');
+
+                            if (!config.html) {
+                                console.log('📊 使用组件模式重新渲染');
+                                win.webContents.send('render-dynamic-gui', config);
+                            }
+
+                            // 确保窗口显示并聚焦
+                            win.show();
+                            win.focus();
+
+                            // 将窗口移到前台（短暂置顶）
+                            win.setAlwaysOnTop(true);
+                            setTimeout(() => {
+                                win.setAlwaysOnTop(config.alwaysOnTop);
+                                // 再次确保窗口可见
+                                win.show();
+                                win.focus();
+                            }, 200);
+
+                            console.log('✅ 复用窗口已更新并显示');
+                        });
+
+                        return win;
+                    } catch (error) {
+                        console.error('❌ 复用窗口时加载内容失败:', error);
+                        // 如果复用失败，继续创建新窗口
+                    }
+                }
             }
         }
-        // 等待窗口关闭
-        await new Promise(resolve => setTimeout(resolve, 100));
+    } else {
+        // 检查并关闭现有窗口
+        const existingWindows = BrowserWindow.getAllWindows();
+        if (existingWindows.length > 0) {
+            console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，正在关闭...`);
+            for (const win of existingWindows) {
+                if (!win.isDestroyed()) {
+                    win.close();
+                }
+            }
+            // 等待窗口关闭
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
     }
 
     // 窗口属性配置
@@ -217,17 +296,6 @@ async function createWindow(config = {}) {
 // 暴露给全局，供 MCP 服务器调用
 global.createWindow = async(config = {}) => {
     console.log('🌐 通过 MCP 调用创建窗口');
-
-    // 检查是否已有窗口，如果有则关闭
-    const existingWindows = BrowserWindow.getAllWindows();
-    if (existingWindows.length > 0) {
-        console.log(`🔍 发现 ${existingWindows.length} 个现有窗口，正在关闭...`);
-        existingWindows.forEach(win => {
-            if (!win.isDestroyed()) {
-                win.close();
-            }
-        });
-    }
 
     return await createWindow(config);
 };

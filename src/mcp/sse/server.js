@@ -520,6 +520,11 @@ const getServer = async() => {
                                     'processData': 'const result = data.userInput * 2; sendResult({ processed: result });'
                                 },
                                 default: {}
+                            },
+                            reuseWindow: {
+                                type: 'boolean',
+                                description: '是否复用现有窗口而不是创建新窗口。当设置为 true 时，如果存在可用窗口，将更新现有窗口的内容和属性，而不是销毁并重新创建窗口。',
+                                default: false
                             }
                         },
                         required: [],
@@ -696,7 +701,8 @@ async function handleRenderDynamicGUI(args) {
             html = null,
             components = [],
             data = {},
-            callbacks = {}
+            callbacks = {},
+            reuseWindow = false
     } = args;
 
     console.log(`🎨 渲染动态 GUI: ${title}`);
@@ -927,7 +933,8 @@ async function handleRenderDynamicGUI(args) {
             html,
             components,
             data,
-            callbacks
+            callbacks,
+            reuseWindow
         });
 
         console.log('✅ MCP 窗口创建成功');
@@ -944,11 +951,12 @@ async function handleRenderDynamicGUI(args) {
         if (zoomFactor !== 1.0) windowProps.push(`缩放: ${zoomFactor}`);
 
         const windowInfo = windowProps.length > 0 ? `\n🔧 窗口属性: ${windowProps.join(', ')}` : '';
+        const reuseInfo = reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
 
         return {
             content: [{
                 type: 'text',
-                text: `✅ 动态界面 "${title}" 已成功创建并渲染\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}\n📍 窗口已显示在屏幕中央${windowInfo}`
+                text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}\n🧩 组件数量: ${components.length}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
             }]
         };
     } catch (error) {

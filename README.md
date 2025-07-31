@@ -10,12 +10,18 @@
 - ✅ 支持 JavaScript 事件处理和交互
 - ✅ 与组件模式并存，提供最大灵活性
 
+### 窗口复用功能 🆕
+- ✅ 支持复用现有窗口而不是销毁重建
+- ✅ 通过 `reuseWindow` 参数控制窗口复用行为
+- ✅ 保持窗口状态和位置，提升用户体验
+- ✅ 减少资源消耗，提高性能
+
 ### 窗口属性设置
 - ✅ 支持丰富的窗口属性配置（菜单栏、边框、透明度、全屏等）
 - ✅ 详细的系统状态显示（MCP服务器地址、端点信息等）
 - ✅ 向后兼容，所有现有功能保持不变
 
-详细文档请查看：[WINDOW_PROPERTIES.md](./WINDOW_PROPERTIES.md)
+详细文档请查看：[WINDOW_PROPERTIES.md](./WINDOW_PROPERTIES.md) 和 [WINDOW_REUSE.md](./WINDOW_REUSE.md)
 
 ## 项目结构
 
@@ -89,7 +95,64 @@ node tools/test-debug.js
 
 # 启动 HTML GUI 演示
 node demo-html-gui.js
+
+# 启动窗口复用功能测试
+node test-window-reuse.js
+
+# 启动窗口复用功能演示
+node demo-window-reuse.js
+
+# 验证窗口复用功能实现
+node verify-window-reuse.js
 ```
+
+## 窗口复用功能
+
+### 基本用法
+
+```javascript
+// 复用现有窗口
+{
+  "title": "复用的窗口",
+  "width": 800,
+  "height": 600,
+  "reuseWindow": true,  // 关键参数：启用窗口复用
+  "components": [
+    { "type": "heading", "text": "复用的窗口", "level": 1 },
+    { "type": "text", "text": "这个窗口复用了之前的窗口" },
+    { "type": "button", "text": "点击我", "onClick": "handleClick" }
+  ],
+  "callbacks": {
+    "handleClick": "alert('复用窗口的按钮被点击了！');"
+  }
+}
+```
+
+### 窗口复用 vs 新建窗口
+
+```javascript
+// 方式 1: 创建新窗口（默认行为）
+{
+  "title": "新窗口",
+  "reuseWindow": false,  // 或不设置此参数
+  "components": [...]
+}
+
+// 方式 2: 复用现有窗口
+{
+  "title": "复用窗口",
+  "reuseWindow": true,   // 启用复用
+  "components": [...]
+}
+```
+
+### 复用窗口的优势
+
+- **保持窗口位置**: 窗口不会重新定位到屏幕中央
+- **保持窗口大小**: 如果新配置没有指定尺寸，保持原有尺寸
+- **减少闪烁**: 避免窗口关闭和重新创建的过程
+- **提升性能**: 减少资源消耗和初始化时间
+- **更好的用户体验**: 窗口状态保持连续
 
 ## HTML 模式使用
 
