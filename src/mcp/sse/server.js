@@ -133,106 +133,7 @@ const getServer = async() => {
                         required: ['components']
                     }
                 },
-                {
-                    name: 'create-form-gui',
-                    description: '快速创建表单界面的便捷工具',
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            title: {
-                                type: 'string',
-                                description: '表单标题',
-                                default: '表单'
-                            },
-                            fields: {
-                                type: 'array',
-                                description: '表单字段定义',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        type: {
-                                            type: 'string',
-                                            enum: ['input', 'textarea', 'select', 'checkbox', 'radio-group'],
-                                            description: '字段类型'
-                                        },
-                                        name: {
-                                            type: 'string',
-                                            description: '字段名称'
-                                        },
-                                        label: {
-                                            type: 'string',
-                                            description: '字段标签'
-                                        },
-                                        required: {
-                                            type: 'boolean',
-                                            description: '是否必填',
-                                            default: false
-                                        },
-                                        placeholder: {
-                                            type: 'string',
-                                            description: '占位符'
-                                        },
-                                        options: {
-                                            type: 'array',
-                                            description: '选项（用于 select 和 radio-group）'
-                                        }
-                                    },
-                                    required: ['type', 'name', 'label']
-                                }
-                            },
-                            submitText: {
-                                type: 'string',
-                                description: '提交按钮文本',
-                                default: '提交'
-                            },
-                            onSubmit: {
-                                type: 'string',
-                                description: '提交回调函数代码',
-                                default: 'const formData = getFormData(); sendResult({ type: "form-submit", data: formData });'
-                            }
-                        },
-                        required: ['fields']
-                    }
-                },
-                {
-                    name: 'create-dialog-gui',
-                    description: '创建对话框界面',
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            title: {
-                                type: 'string',
-                                description: '对话框标题',
-                                default: '确认'
-                            },
-                            message: {
-                                type: 'string',
-                                description: '对话框消息',
-                                required: true
-                            },
-                            type: {
-                                type: 'string',
-                                enum: ['info', 'warning', 'error', 'confirm'],
-                                description: '对话框类型',
-                                default: 'info'
-                            },
-                            buttons: {
-                                type: 'array',
-                                description: '按钮配置',
-                                items: {
-                                    type: 'object',
-                                    properties: {
-                                        text: { type: 'string' },
-                                        action: { type: 'string' },
-                                        className: { type: 'string' }
-                                    }
-                                },
-                                default: [{ text: '确定', action: 'confirm', className: 'btn-primary' }]
-                            }
-                        },
-                        required: ['message']
-                    }
-                },
+
                 {
                     name: 'start-notification-stream',
                     description: '开始发送定期通知',
@@ -265,11 +166,7 @@ const getServer = async() => {
                 case 'render-dynamic-gui':
                     return await handleRenderDynamicGUI(args);
 
-                case 'create-form-gui':
-                    return await handleCreateFormGUI(args);
 
-                case 'create-dialog-gui':
-                    return await handleCreateDialogGUI(args);
 
                 case 'start-notification-stream':
                     return await handleStartNotificationStream(args, server);
@@ -350,141 +247,13 @@ async function handleRenderDynamicGUI(args) {
     }
 }
 
-// 处理表单 GUI 创建
-async function handleCreateFormGUI(args) {
-    const {
-        title = '表单',
-            fields = [],
-            submitText = '提交',
-            onSubmit = 'const formData = getFormData(); sendResult({ type: "form-submit", data: formData });'
-    } = args;
 
-    // 构建表单组件
-    const components = [{
-            type: 'heading',
-            text: title,
-            level: 2,
-            className: 'mb-6 text-xl font-bold'
-        },
-        {
-            type: 'container',
-            className: 'form-container',
-            children: [
-                ...fields.map(field => ({
-                    type: field.type,
-                    name: field.name,
-                    label: field.label,
-                    required: field.required || false,
-                    placeholder: field.placeholder,
-                    options: field.options,
-                    className: 'mb-4'
-                })),
-                {
-                    type: 'button',
-                    text: submitText,
-                    onClick: 'submitForm',
-                    className: 'w-full btn-primary mt-4'
-                }
-            ]
-        }
-    ];
-
-    const callbacks = {
-        submitForm: onSubmit
-    };
-
-    return await handleRenderDynamicGUI({
-        title: `${title} - 表单`,
-        width: 500,
-        height: Math.min(800, 300 + fields.length * 80),
-        components,
-        callbacks
-    });
-}
-
-// 处理对话框 GUI 创建
-async function handleCreateDialogGUI(args) {
-    const {
-        title = '确认',
-            message,
-            type = 'info',
-            buttons = [{ text: '确定', action: 'confirm', className: 'btn-primary' }]
-    } = args;
-
-    // 根据类型选择图标和样式
-    const typeConfig = {
-        info: { icon: 'ℹ️', className: 'text-blue-600' },
-        warning: { icon: '⚠️', className: 'text-yellow-600' },
-        error: { icon: '❌', className: 'text-red-600' },
-        confirm: { icon: '❓', className: 'text-gray-600' }
-    };
-
-    const config = typeConfig[type] || typeConfig.info;
-
-    const components = [{
-        type: 'container',
-        className: 'dialog-container text-center p-6',
-        children: [{
-                type: 'text',
-                text: config.icon,
-                className: 'text-4xl mb-4'
-            },
-            {
-                type: 'heading',
-                text: title,
-                level: 3,
-                className: `mb-4 ${config.className}`
-            },
-            {
-                type: 'text',
-                text: message,
-                className: 'mb-6 text-gray-700'
-            },
-            {
-                type: 'container',
-                className: 'flex justify-center space-x-3',
-                children: buttons.map((btn, index) => ({
-                    type: 'button',
-                    text: btn.text,
-                    onClick: `dialogAction_${index}`,
-                    className: btn.className || 'btn-secondary'
-                }))
-            }
-        ]
-    }];
-
-    const callbacks = {};
-    buttons.forEach((btn, index) => {
-        callbacks[`dialogAction_${index}`] = `sendResult({ type: 'dialog-action', action: '${btn.action}', button: '${btn.text}' }); window.close();`;
-    });
-
-    return await handleRenderDynamicGUI({
-        title,
-        width: 400,
-        height: 250,
-        components,
-        callbacks
-    });
-}
 
 // 处理通知流
 async function handleStartNotificationStream(args, server) {
     const { interval = 1000, count = 10 } = args;
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
     let counter = 0;
-
-    // 发送初始通知
-    try {
-        await server.notification({
-            method: "notifications/message",
-            params: {
-                level: "info",
-                data: `开始通知流，每 ${interval}ms 发送 ${count} 条消息`
-            }
-        });
-    } catch (error) {
-        console.error("发送初始通知时出错:", error);
-    }
 
     // 发送定期通知
     while (counter < count) {
