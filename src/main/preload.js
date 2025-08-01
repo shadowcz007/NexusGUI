@@ -12,9 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     // 发送消息到主进程
     send: (channel, data) => {
-        const validChannels = ['mcp-result'];
+        const validChannels = ['mcp-result', 'open-dev-tools'];
         if (validChannels.includes(channel)) {
-            ipcRenderer.invoke(channel, data);
+            if (channel === 'open-dev-tools') {
+                ipcRenderer.send(channel, data);
+            } else {
+                ipcRenderer.invoke(channel, data);
+            }
         }
     },
 

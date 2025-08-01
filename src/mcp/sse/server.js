@@ -4,6 +4,9 @@ const { z } = require('zod');
 const fs = require('fs');
 const path = require('path');
 
+// 读取 package.json 获取项目信息
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../package.json'), 'utf8'));
+
 // Dynamic imports for ES modules
 let Server, SSEServerTransport, CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError;
 
@@ -36,8 +39,8 @@ const getServer = async() => {
     await initializeModules();
 
     const server = new Server({
-        name: 'nexusgui-sse-server',
-        version: '0.1.0',
+        name: `${packageJson.name}-sse-server`,
+        version: packageJson.version,
     }, {
         capabilities: {
             tools: {},
@@ -706,8 +709,8 @@ function createServer(port = 3001) {
         const healthInfo = {
             status: 'ok',
             activeSessions: Object.keys(transports).length,
-            server: 'NexusGUI SSE MCP Server',
-            version: '5.0.0',
+            server: `${packageJson.build.productName} SSE MCP Server`,
+            version: packageJson.version,
             timestamp: new Date().toISOString(),
             sessions: Object.keys(transports).map(id => ({
                 sessionId: id,
@@ -715,22 +718,467 @@ function createServer(port = 3001) {
             }))
         };
         console.log(`🏥 健康检查:`, healthInfo);
-        res.json(healthInfo);
+        
+        // 检查是否请求JSON格式
+        if (req.headers.accept && req.headers.accept.includes('application/json')) {
+            res.json(healthInfo);
+            return;
+        }
+        
+        // 返回HTML格式的健康检查页面
+        const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 服务器健康检查</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        .status-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #10b981;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .health-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border-left: 4px solid #10b981;
+        }
+        .health-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .health-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+        .timestamp {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 20px;
+        }
+        .refresh-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        .refresh-btn:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="status-icon">✅</div>
+        <h1 class="title">服务器运行正常</h1>
+        <p class="subtitle">所有系统组件工作正常</p>
+        
+        <div class="health-grid">
+            <div class="health-item">
+                <div class="health-label">服务器状态</div>
+                <div class="health-value">${healthInfo.status.toUpperCase()}</div>
+            </div>
+            <div class="health-item">
+                <div class="health-label">活动会话</div>
+                <div class="health-value">${healthInfo.activeSessions}</div>
+            </div>
+            <div class="health-item">
+                <div class="health-label">服务器版本</div>
+                <div class="health-value">${healthInfo.version}</div>
+            </div>
+            <div class="health-item">
+                <div class="health-label">运行时间</div>
+                <div class="health-value">${Math.floor((Date.now() - new Date(healthInfo.timestamp).getTime()) / 1000)}s</div>
+            </div>
+        </div>
+        
+        <button class="refresh-btn" onclick="location.reload()">🔄 刷新状态</button>
+        
+        <div class="timestamp">
+            检查时间: ${new Date(healthInfo.timestamp).toLocaleString('zh-CN')}
+        </div>
+    </div>
+    
+    <script>
+        // 自动刷新
+        setInterval(() => {
+            location.reload();
+        }, 10000); // 10秒自动刷新
+        
+        console.log('🏥 健康检查页面已加载');
+        console.log('📊 健康信息:', ${JSON.stringify(healthInfo)});
+    </script>
+</body>
+</html>`;
+        
+        res.send(html);
     });
 
     // 调试端点：显示所有活动会话
     app.get('/debug/sessions', (req, res) => {
-        const debugInfo = {
-            totalSessions: Object.keys(transports).length,
-            sessions: Object.keys(transports).map(id => ({
-                sessionId: id,
-                isConnected: (transports[id] && transports[id].isConnected) || false,
-                hasSDKTransport: (transports[id] && transports[id].sdkTransport) || false,
-                sessionIdFromTransport: (transports[id] && transports[id].sessionId) || null
-            }))
-        };
-        console.log(`🐛 调试信息:`, debugInfo);
-        res.json(debugInfo);
+        try {
+            const debugInfo = {
+                totalSessions: Object.keys(transports).length,
+                timestamp: new Date().toISOString(),
+                server: {
+                    name: `${packageJson.name}-sse-server`,
+                    version: packageJson.version,
+                    port: port || 3001
+                },
+                sessions: Object.keys(transports).map(id => {
+                    const transport = transports[id];
+                    return {
+                        sessionId: id,
+                        isConnected: transport ? (transport.isConnected || false) : false,
+                        hasSDKTransport: transport ? (!!transport.sdkTransport) : false,
+                        sessionIdFromTransport: transport ? (transport.sessionId || null) : null,
+                        createdAt: transport ? (transport.createdAt || null) : null,
+                        lastActivity: transport ? (transport.lastActivity || null) : null
+                    };
+                })
+            };
+            
+            console.log(`🐛 调试信息:`, debugInfo);
+            
+            // 检查是否请求JSON格式
+            if (req.headers.accept && req.headers.accept.includes('application/json')) {
+                res.json(debugInfo);
+                return;
+            }
+            
+            // 返回HTML格式的调试页面
+            const sessionsHTML = debugInfo.sessions.map(session => `
+                <div class="session-card ${session.isConnected ? 'connected' : 'disconnected'}">
+                    <div class="session-header">
+                        <span class="session-status">${session.isConnected ? '🟢' : '🔴'}</span>
+                        <span class="session-id">${session.sessionId}</span>
+                    </div>
+                    <div class="session-details">
+                        <div class="detail-item">
+                            <span class="label">连接状态:</span>
+                            <span class="value ${session.isConnected ? 'connected' : 'disconnected'}">
+                                ${session.isConnected ? '已连接' : '已断开'}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">SDK传输层:</span>
+                            <span class="value">${session.hasSDKTransport ? '✅ 已初始化' : '❌ 未初始化'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">创建时间:</span>
+                            <span class="value">${session.createdAt ? new Date(session.createdAt).toLocaleString('zh-CN') : '未知'}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="label">最后活动:</span>
+                            <span class="value">${session.lastActivity ? new Date(session.lastActivity).toLocaleString('zh-CN') : '未知'}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            const html = `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 服务器调试信息</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .server-info {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-left: 4px solid #3b82f6;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+        .info-label {
+            font-weight: 500;
+            color: #666;
+        }
+        .info-value {
+            font-weight: 600;
+            color: #333;
+        }
+        .sessions-section {
+            margin-top: 30px;
+        }
+        .section-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        .section-title::before {
+            content: '🔍';
+            margin-right: 10px;
+        }
+        .sessions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .session-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 2px solid #e5e7eb;
+            transition: all 0.3s ease;
+        }
+        .session-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+        .session-card.connected {
+            border-color: #10b981;
+        }
+        .session-card.disconnected {
+            border-color: #ef4444;
+        }
+        .session-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .session-status {
+            font-size: 1.2rem;
+            margin-right: 10px;
+        }
+        .session-id {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #f3f4f6;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        .session-details {
+            space-y: 8px;
+        }
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 0;
+        }
+        .detail-item .label {
+            font-weight: 500;
+            color: #666;
+            font-size: 0.9rem;
+        }
+        .detail-item .value {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .detail-item .value.connected {
+            color: #10b981;
+        }
+        .detail-item .value.disconnected {
+            color: #ef4444;
+        }
+        .no-sessions {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1rem;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 15px 25px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+        }
+        .refresh-btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+        }
+        .timestamp {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🔍 MCP 服务器调试</h1>
+            <p class="subtitle">实时会话监控与状态信息</p>
+        </div>
+        
+        <div class="server-info">
+            <div class="info-grid">
+                <div class="info-item">
+                    <span class="info-label">服务器名称</span>
+                    <span class="info-value">${debugInfo.server.name}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">版本</span>
+                    <span class="info-value">${debugInfo.server.version}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">监听端口</span>
+                    <span class="info-value">${debugInfo.server.port}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">活动会话</span>
+                    <span class="info-value">${debugInfo.totalSessions}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sessions-section">
+            <h2 class="section-title">活动会话 (${debugInfo.totalSessions})</h2>
+            
+            ${debugInfo.totalSessions > 0 ? `
+            <div class="sessions-grid">
+                ${sessionsHTML}
+            </div>
+            ` : `
+            <div class="no-sessions">
+                <p>🔍 当前没有活动会话</p>
+                <p>等待客户端连接...</p>
+            </div>
+            `}
+        </div>
+        
+        <div class="timestamp">
+            最后更新: ${new Date(debugInfo.timestamp).toLocaleString('zh-CN')}
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="location.reload()">🔄 刷新</button>
+    
+    <script>
+        // 自动刷新
+        setInterval(() => {
+            location.reload();
+        }, 30000); // 30秒自动刷新
+        
+        console.log('🐛 调试页面已加载');
+        console.log('📊 服务器信息:', ${JSON.stringify(debugInfo)});
+    </script>
+</body>
+</html>`;
+            
+            res.send(html);
+        } catch (error) {
+            console.error('❌ 生成调试信息时出错:', error);
+            res.status(500).json({
+                error: '生成调试信息失败',
+                message: error.message,
+                totalSessions: Object.keys(transports).length,
+                timestamp: new Date().toISOString()
+            });
+        }
     });
 
     // 启动服务器
@@ -739,7 +1187,7 @@ function createServer(port = 3001) {
             console.error('❌ 启动服务器失败:', error);
             throw error;
         }
-        console.log(`🚀 NexusGUI SSE MCP 服务器已启动，监听端口 ${port}`);
+        console.log(`🚀 ${packageJson.build.productName} SSE MCP 服务器已启动，监听端口 ${port}`);
         console.log(`📡 SSE 端点: http://localhost:${port}/mcp`);
         console.log(`📨 消息端点: http://localhost:${port}/messages`);
         console.log(`🏥 健康检查: http://localhost:${port}/health`);

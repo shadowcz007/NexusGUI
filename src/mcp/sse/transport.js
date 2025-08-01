@@ -20,6 +20,8 @@ class SSEServerTransport {
         this.isConnected = false;
         this.messageQueue = [];
         this.sdkTransport = null;
+        this.createdAt = new Date().toISOString();
+        this.lastActivity = new Date().toISOString();
 
         // Transport interface callbacks
         this.onclose = null;
@@ -121,6 +123,7 @@ class SSEServerTransport {
 
     async send(message) {
         // console.log(`📤 正在发送消息:`, message);
+        this.lastActivity = new Date().toISOString();
 
         if (!this.isConnected || !this.sdkTransport) {
             console.error(`❌ 传输层未连接，无法发送消息`);
@@ -141,6 +144,8 @@ class SSEServerTransport {
 
     async handlePostMessage(request, response, body) {
         // console.log(`📨 处理 POST 消息...`);
+        this.lastActivity = new Date().toISOString();
+        
         // console.log(`🔍 Request:`, {
         //     url: request.url,
         //     method: request.method,

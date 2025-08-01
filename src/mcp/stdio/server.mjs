@@ -12,6 +12,14 @@ import {
 import { z } from 'zod';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// 获取当前文件的目录路径（ES模块中的 __dirname 替代方案）
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 读取 package.json 获取项目信息
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../package.json'), 'utf8'));
 
 // HTML 输入处理函数
 function processHtmlInput(htmlInput) {
@@ -35,7 +43,7 @@ function processHtmlInput(htmlInput) {
             throw new Error(`读取 HTML 文件失败: ${error.message}`);
         }
     }
-    
+
     // 2. 其次判断是否是 HTML 字符串
     if (isHtmlString(htmlInput)) {
         console.log(`📝 检测到 HTML 字符串，长度: ${htmlInput.length}`);
@@ -44,32 +52,32 @@ function processHtmlInput(htmlInput) {
             content: htmlInput
         };
     }
-    
+
     throw new Error('无效的 HTML 输入，必须是 HTML 文件路径或 HTML 字符串');
 }
 
 function isHtmlFilePath(input) {
     // 检查是否是文件路径格式
-    return typeof input === 'string' && 
-           (input.endsWith('.html') || 
+    return typeof input === 'string' &&
+        (input.endsWith('.html') ||
             input.endsWith('.htm') ||
-            input.includes('/') || 
+            input.includes('/') ||
             input.includes('\\')) &&
-           !input.includes('<') && 
-           !input.includes('>');
+        !input.includes('<') &&
+        !input.includes('>');
 }
 
 function isHtmlString(input) {
     // 检查是否包含 HTML 标签
-    return typeof input === 'string' && 
-           input.includes('<') && 
-           input.includes('>');
+    return typeof input === 'string' &&
+        input.includes('<') &&
+        input.includes('>');
 }
 
 // 创建 MCP 服务器
 const server = new Server({
-    name: 'nexusgui-server',
-    version: '5.0.0',
+    name: `${packageJson.name}-server`,
+    version: packageJson.version,
 }, {
     capabilities: {
         tools: {},
@@ -77,7 +85,7 @@ const server = new Server({
 });
 
 // 注册工具：render-gui
-server.setRequestHandler(ListToolsRequestSchema, async() => {
+server.setRequestHandler(ListToolsRequestSchema, async () => {
     return {
         tools: [{
             name: 'render-gui',
@@ -150,7 +158,7 @@ server.setRequestHandler(ListToolsRequestSchema, async() => {
 });
 
 // 处理工具调用
-server.setRequestHandler(CallToolRequestSchema, async(request) => {
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
@@ -189,13 +197,13 @@ async function handleRenderGUI(args) {
     // 处理 HTML 输入（按优先级）
     let processedHtml = null;
     let inputType = 'none';
-    
+
     if (html) {
         try {
             const result = processHtmlInput(html);
             processedHtml = result.content;
             inputType = result.type;
-            
+
             if (result.type === 'file') {
                 console.log(`📁 使用 HTML 文件: ${result.path}`);
             } else {
@@ -269,20 +277,20 @@ async function startMCPServer() {
     // 连接服务器和传输层
     await server.connect(transport);
 
-    console.log('🚀 NexusGUI MCP 服务器已启动');
+    console.log(`🚀 ${packageJson.build.productName} MCP 服务器已启动`);
     console.log('📡 等待 AI 客户端连接...');
 
     return server;
 }
 
 // 优雅关闭
-process.on('SIGINT', async() => {
+process.on('SIGINT', async () => {
     console.log('🛑 正在关闭 MCP 服务器...');
     await server.close();
     process.exit(0);
 });
 
-process.on('SIGTERM', async() => {
+process.on('SIGTERM', async () => {
     console.log('🛑 正在关闭 MCP 服务器...');
     await server.close();
     process.exit(0);
