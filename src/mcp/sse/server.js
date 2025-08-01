@@ -709,7 +709,7 @@ function createServer(port = 3001) {
         const healthInfo = {
             status: 'ok',
             activeSessions: Object.keys(transports).length,
-            server: `${packageJson.build.productName} SSE MCP Server`,
+            server: `${packageJson.build?.productName || packageJson.name || 'NexusGUI'} SSE MCP Server`,
             version: packageJson.version,
             timestamp: new Date().toISOString(),
             sessions: Object.keys(transports).map(id => ({
@@ -1187,7 +1187,7 @@ function createServer(port = 3001) {
             console.error('❌ 启动服务器失败:', error);
             throw error;
         }
-        console.log(`🚀 ${packageJson.build.productName} SSE MCP 服务器已启动，监听端口 ${port}`);
+        console.log(`🚀 ${packageJson.build?.productName || packageJson.name || 'NexusGUI'} SSE MCP 服务器已启动，监听端口 ${port}`);
         console.log(`📡 SSE 端点: http://localhost:${port}/mcp`);
         console.log(`📨 消息端点: http://localhost:${port}/messages`);
         console.log(`🏥 健康检查: http://localhost:${port}/health`);

@@ -277,7 +277,7 @@ async function startMCPServer() {
     // 连接服务器和传输层
     await server.connect(transport);
 
-    console.log(`🚀 ${packageJson.build.productName} MCP 服务器已启动`);
+    console.log(`🚀 ${packageJson.build?.productName || packageJson.name || 'NexusGUI'} MCP 服务器已启动`);
     console.log('📡 等待 AI 客户端连接...');
 
     return server;

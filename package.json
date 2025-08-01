@@ -9,8 +9,7 @@
         "start-with-window": "electron . --show-main-window",
         "dev": "electron . --dev",
         "build": "electron-builder",
-        "test": "jest",
-        "sse-server": "node mcp-server-sse.js"
+        "test": "jest"
     },
     "keywords": [
         "electron",
@@ -19,7 +18,7 @@
         "gui",
         "dynamic"
     ],
-    "author": "NexusGUI Team",
+    "author": "shadow",
     "license": "MIT",
     "devDependencies": {
         "electron": "^27.0.0",
@@ -44,6 +43,7 @@
         "files": [
             "src/main/main.js",
             "src/main/preload.js",
+            "src/config/settings.js",
             "src/renderer/renderer.js",
             "src/renderer/index.html",
             "src/renderer/styles.css",
@@ -52,6 +52,7 @@
             "src/mcp/sse/transport.js",
             "src/mcp/stdio/server.mjs",
             "src/mcp/stdio/wrapper.js",
+            "assets/**/*",
             "package.json"
         ],
         "mac": {
