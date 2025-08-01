@@ -27,48 +27,7 @@ async function initializeModules() {
     }
 }
 
-// GUI 组件定义 Schema
-const ComponentSchema = z.object({
-    type: z.string().describe('组件类型'),
-    id: z.string().optional().describe('组件ID'),
-    className: z.string().optional().describe('CSS类名'),
-    style: z.record(z.any()).optional().describe('内联样式'),
-    attributes: z.record(z.string()).optional().describe('HTML属性'),
-    dataset: z.record(z.string()).optional().describe('数据属性'),
-    // 基础组件属性
-    text: z.string().optional().describe('文本内容'),
-    level: z.number().optional().describe('标题级别'),
-    src: z.string().optional().describe('图片源'),
-    alt: z.string().optional().describe('图片替代文本'),
-    href: z.string().optional().describe('链接地址'),
-    target: z.string().optional().describe('链接目标'),
-    // 表单组件属性
-    label: z.string().optional().describe('标签文本'),
-    name: z.string().optional().describe('表单字段名'),
-    placeholder: z.string().optional().describe('占位符'),
-    required: z.boolean().optional().describe('是否必填'),
-    disabled: z.boolean().optional().describe('是否禁用'),
-    inputType: z.string().optional().describe('输入框类型'),
-    rows: z.number().optional().describe('文本区域行数'),
-    maxLength: z.number().optional().describe('最大长度'),
-    checked: z.boolean().optional().describe('是否选中'),
-    options: z.array(z.any()).optional().describe('选项列表'),
-    // 扩展组件属性
-    value: z.number().optional().describe('进度值'),
-    showValue: z.boolean().optional().describe('是否显示数值'),
-    fillClassName: z.string().optional().describe('填充样式'),
-    title: z.string().optional().describe('卡片标题'),
-    content: z.string().optional().describe('卡片内容'),
-    onClick: z.string().optional().describe('点击事件回调名'),
-    // 容器组件
-    children: z.array(z.lazy(() => ComponentSchema)).optional().describe('子组件'),
-    // 图表组件
-    chartType: z.string().optional().describe('图表类型'),
-    data: z.any().optional().describe('图表数据'),
-    options: z.any().optional().describe('图表选项'),
-    width: z.string().optional().describe('宽度'),
-    height: z.string().optional().describe('高度')
-});
+// HTML 渲染模式不需要组件 Schema
 
 /**
  * 创建 MCP 服务器实例
@@ -91,7 +50,7 @@ const getServer = async() => {
         return {
             tools: [{
                     name: 'render-gui',
-                    description: '渲染动态 GUI 界面，支持多种组件类型和交互功能，以及丰富的窗口属性设置。支持组件类型：heading(标题)、text(文本)、input(输入框)、textarea(文本域)、select(选择框)、checkbox(复选框)、radio-group(单选组)、button(按钮)、image(图片)、divider(分割线)、container(容器)、link(链接)、progress(进度条)、tag(标签)、card(卡片)、chart(图表)。窗口属性包括：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。',
+                    description: '渲染 HTML 界面到桌面窗口。支持完整的 HTML、CSS 和 JavaScript，可以创建任意复杂的用户界面。支持丰富的窗口属性设置：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。HTML 内容可以是文件路径或直接的 HTML 字符串。',
                     inputSchema: {
                         type: 'object',
                         properties: {
