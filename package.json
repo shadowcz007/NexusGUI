@@ -6,6 +6,7 @@
     "main": "src/main/main.js",
     "scripts": {
         "start": "electron .",
+        "start-with-window": "electron . --show-main-window",
         "dev": "electron . --dev",
         "build": "electron-builder",
         "test": "jest",

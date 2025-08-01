@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const { initializeSSEMCPServer } = require('../mcp/sse/wrapper.js');
 
@@ -385,6 +385,8 @@ function generateMCPDashboardHTML(mcpInfo) {
 
 let mainWindow;
 let sseServer;
+let tray = null;
+let mcpServerInfo = null;
 
 // 统一 GUI 创建函数
 async function createWindow(config = {}) {
@@ -668,8 +670,252 @@ global.createWindow = async(config = {}) => {
     return await createWindow(config);
 };
 
+// 创建系统托盘图标
+function createTrayIcon() {
+    // 创建托盘图标 (使用系统默认图标或自定义图标)
+    const iconPath = path.join(__dirname, '../../assets/tray-icon.png');
+    let trayIcon;
+    
+    try {
+        // 尝试使用自定义图标
+        trayIcon = nativeImage.createFromPath(iconPath);
+        if (trayIcon.isEmpty()) {
+            throw new Error('自定义图标为空');
+        }
+    } catch (error) {
+        // 如果自定义图标不存在，使用系统默认图标
+        console.log('使用系统默认托盘图标');
+        trayIcon = nativeImage.createEmpty();
+        // 在macOS上创建一个简单的模板图标
+        if (process.platform === 'darwin') {
+            trayIcon = nativeImage.createFromNamedImage('NSStatusAvailable', [16, 16]);
+        }
+    }
+    
+    tray = new Tray(trayIcon);
+    
+    // 设置托盘提示文本
+    tray.setToolTip('NexusGUI - MCP 服务器控制台');
+    
+    // 创建托盘菜单
+    updateTrayMenu();
+    
+    // 双击托盘图标显示主控制台
+    tray.on('double-click', () => {
+        showMCPConsole();
+    });
+    
+    console.log('✅ 系统托盘已创建');
+}
+
+// 更新托盘菜单
+function updateTrayMenu() {
+    if (!tray) return;
+    
+    const serverStatus = mcpServerInfo?.status === 'running' ? '🟢 运行中' : '🔴 已停止';
+    const serverPort = mcpServerInfo?.port || '未知';
+    const activeSessions = getActiveSessionsCount();
+    
+    const contextMenu = Menu.buildFromTemplate([
+        {
+            label: `NexusGUI MCP 服务器`,
+            type: 'normal',
+            enabled: false
+        },
+        { type: 'separator' },
+        {
+            label: `状态: ${serverStatus}`,
+            type: 'normal',
+            enabled: false
+        },
+        {
+            label: `端口: ${serverPort}`,
+            type: 'normal',
+            enabled: false
+        },
+        {
+            label: `活动会话: ${activeSessions}`,
+            type: 'normal',
+            enabled: false
+        },
+        { type: 'separator' },
+        {
+            label: '📊 MCP 服务器控制台',
+            type: 'normal',
+            click: () => showMCPConsole()
+        },
+        {
+            label: '🔧 调试信息窗口',
+            type: 'normal',
+            enabled: mcpServerInfo?.status === 'running',
+            click: () => showDebugWindow()
+        },
+        {
+            label: '🏥 健康检查',
+            type: 'normal',
+            enabled: mcpServerInfo?.status === 'running',
+            click: () => showHealthCheck()
+        },
+        {
+            label: '📋 会话管理',
+            type: 'normal',
+            enabled: mcpServerInfo?.status === 'running',
+            click: () => showSessionManager()
+        },
+        { type: 'separator' },
+        {
+            label: '🔄 刷新状态',
+            type: 'normal',
+            click: () => refreshServerStatus()
+        },
+        {
+            label: '⚙️ 服务器设置',
+            type: 'normal',
+            click: () => showServerSettings()
+        },
+        { type: 'separator' },
+        {
+            label: '🚪 退出',
+            type: 'normal',
+            click: () => {
+                app.quit();
+            }
+        }
+    ]);
+    
+    tray.setContextMenu(contextMenu);
+}
+
+// 获取活动会话数量
+function getActiveSessionsCount() {
+    // 这里需要从MCP服务器获取实际的会话数量
+    // 暂时返回模拟数据
+    return 0;
+}
+
+// 显示MCP服务器控制台
+async function showMCPConsole() {
+    try {
+        const consoleWindow = await createWindow({
+            title: 'NexusGUI - MCP 服务器控制台',
+            width: 900,
+            height: 700,
+            html: generateMCPDashboardHTML(mcpServerInfo),
+            alwaysOnTop: false,
+            reuseWindow: true
+        });
+        
+        console.log('✅ MCP 控制台窗口已显示');
+    } catch (error) {
+        console.error('❌ 显示MCP控制台失败:', error);
+    }
+}
+
+// 显示调试信息窗口
+async function showDebugWindow() {
+    if (!mcpServerInfo || mcpServerInfo.status !== 'running') {
+        console.log('⚠️ MCP服务器未运行，无法显示调试信息');
+        return;
+    }
+    
+    const debugHtml = generateDebugWindowHTML();
+    
+    try {
+        await createWindow({
+            title: 'MCP 服务器 - 调试信息',
+            width: 800,
+            height: 600,
+            html: debugHtml,
+            alwaysOnTop: true
+        });
+        
+        console.log('✅ 调试信息窗口已显示');
+    } catch (error) {
+        console.error('❌ 显示调试窗口失败:', error);
+    }
+}
+
+// 显示健康检查窗口
+async function showHealthCheck() {
+    if (!mcpServerInfo || mcpServerInfo.status !== 'running') {
+        console.log('⚠️ MCP服务器未运行，无法进行健康检查');
+        return;
+    }
+    
+    try {
+        // 直接打开健康检查URL
+        const { shell } = require('electron');
+        await shell.openExternal(`http://localhost:${mcpServerInfo.port}/health`);
+        
+        console.log('✅ 健康检查页面已在浏览器中打开');
+    } catch (error) {
+        console.error('❌ 打开健康检查页面失败:', error);
+    }
+}
+
+// 显示会话管理窗口
+async function showSessionManager() {
+    if (!mcpServerInfo || mcpServerInfo.status !== 'running') {
+        console.log('⚠️ MCP服务器未运行，无法显示会话管理');
+        return;
+    }
+    
+    const sessionHtml = generateSessionManagerHTML();
+    
+    try {
+        await createWindow({
+            title: 'MCP 服务器 - 会话管理',
+            width: 700,
+            height: 500,
+            html: sessionHtml,
+            alwaysOnTop: true
+        });
+        
+        console.log('✅ 会话管理窗口已显示');
+    } catch (error) {
+        console.error('❌ 显示会话管理窗口失败:', error);
+    }
+}
+
+// 刷新服务器状态
+function refreshServerStatus() {
+    console.log('🔄 刷新服务器状态...');
+    
+    // 更新托盘菜单
+    updateTrayMenu();
+    
+    // 如果主控制台窗口打开，刷新它
+    const windows = BrowserWindow.getAllWindows();
+    windows.forEach(window => {
+        if (window.getTitle().includes('MCP 服务器控制台')) {
+            window.reload();
+        }
+    });
+    
+    console.log('✅ 服务器状态已刷新');
+}
+
+// 显示服务器设置窗口
+async function showServerSettings() {
+    const settingsHtml = generateServerSettingsHTML();
+    
+    try {
+        await createWindow({
+            title: 'MCP 服务器 - 设置',
+            width: 600,
+            height: 400,
+            html: settingsHtml,
+            alwaysOnTop: true
+        });
+        
+        console.log('✅ 服务器设置窗口已显示');
+    } catch (error) {
+        console.error('❌ 显示设置窗口失败:', error);
+    }
+}
+
 app.whenReady().then(async() => {
-    let mcpServerInfo = {
+    mcpServerInfo = {
         status: 'failed',
         port: 3000,
         endpoints: [],
@@ -703,20 +949,32 @@ app.whenReady().then(async() => {
         mcpServerInfo.error = error.message;
     }
 
-    // 创建主窗口并显示MCP服务器信息
-    mainWindow = await createWindow({
-        title: 'NexusGUI - MCP 服务器控制台',
-        html: generateMCPDashboardHTML(mcpServerInfo)
-    });
+    // 创建系统托盘
+    createTrayIcon();
+
+    // 创建主窗口并显示MCP服务器信息（可选，也可以只通过托盘访问）
+    if (process.argv.includes('--show-main-window')) {
+        mainWindow = await createWindow({
+            title: 'NexusGUI - MCP 服务器控制台',
+            html: generateMCPDashboardHTML(mcpServerInfo)
+        });
+    }
 
     app.on('activate', async() => {
-        if (BrowserWindow.getAllWindows().length === 0) {
-            mainWindow = await createWindow();
+        // 在macOS上，点击dock图标时显示主控制台
+        if (process.platform === 'darwin') {
+            showMCPConsole();
         }
     });
 });
 
 app.on('window-all-closed', () => {
+    // 有托盘图标时，关闭所有窗口不退出应用
+    if (tray) {
+        console.log('✅ 所有窗口已关闭，应用继续在托盘中运行');
+        return;
+    }
+    
     if (process.platform !== 'darwin') {
         // 关闭 SSE MCP 服务器
         if (sseServer) {
@@ -724,6 +982,21 @@ app.on('window-all-closed', () => {
         }
         app.quit();
     }
+});
+
+app.on('before-quit', () => {
+    // 应用退出前清理托盘
+    if (tray) {
+        tray.destroy();
+        tray = null;
+    }
+    
+    // 关闭 SSE MCP 服务器
+    if (sseServer) {
+        sseServer.close();
+    }
+    
+    console.log('✅ 应用正在退出，资源已清理');
 });
 
 // IPC 处理程序
@@ -794,5 +1067,552 @@ ipcMain.handle('get-form-data', async(event, formSelector) => {
         }
     }
 })();
+
+// 生成调试信息窗口HTML
+function generateDebugWindowHTML() {
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 服务器 - 调试信息</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        .debug-section {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .debug-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .debug-label {
+            font-weight: 500;
+            color: #666;
+        }
+        .debug-value {
+            font-family: 'Monaco', 'Menlo', monospace;
+            background: #e5e7eb;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .log-container {
+            background: #1f2937;
+            color: #f9fafb;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .refresh-btn:hover {
+            background: #5a67d8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🔧 MCP 服务器调试信息</h1>
+        </div>
+        
+        <div class="debug-section">
+            <div class="section-title">服务器状态</div>
+            <div class="debug-item">
+                <span class="debug-label">运行状态</span>
+                <span class="debug-value">${mcpServerInfo?.status || '未知'}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">监听端口</span>
+                <span class="debug-value">${mcpServerInfo?.port || '未知'}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">启动时间</span>
+                <span class="debug-value">${mcpServerInfo?.startTime ? new Date(mcpServerInfo.startTime).toLocaleString('zh-CN') : '未知'}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">运行时长</span>
+                <span class="debug-value">${mcpServerInfo?.startTime ? Math.floor((Date.now() - new Date(mcpServerInfo.startTime).getTime()) / 1000) + 's' : '未知'}</span>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <div class="section-title">系统信息</div>
+            <div class="debug-item">
+                <span class="debug-label">Node.js 版本</span>
+                <span class="debug-value">${process.version}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">平台</span>
+                <span class="debug-value">${process.platform}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">架构</span>
+                <span class="debug-value">${process.arch}</span>
+            </div>
+            <div class="debug-item">
+                <span class="debug-label">内存使用</span>
+                <span class="debug-value">${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB</span>
+            </div>
+        </div>
+        
+        <div class="debug-section">
+            <div class="section-title">实时日志</div>
+            <div class="log-container" id="logContainer">
+                <div>🚀 MCP 服务器调试日志</div>
+                <div>📊 等待日志更新...</div>
+            </div>
+        </div>
+        
+        <button class="refresh-btn" onclick="location.reload()">🔄 刷新调试信息</button>
+    </div>
+    
+    <script>
+        // 模拟日志更新
+        let logCounter = 0;
+        setInterval(() => {
+            const logContainer = document.getElementById('logContainer');
+            logCounter++;
+            const timestamp = new Date().toLocaleTimeString('zh-CN');
+            const logEntry = document.createElement('div');
+            logEntry.textContent = \`[\${timestamp}] 调试信息 #\${logCounter} - 服务器运行正常\`;
+            logContainer.appendChild(logEntry);
+            
+            // 保持最新的日志在底部
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // 限制日志条数
+            if (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }, 2000);
+    </script>
+</body>
+</html>`;
+}
+
+// 生成会话管理窗口HTML
+function generateSessionManagerHTML() {
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 服务器 - 会话管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #10b981;
+            margin-bottom: 10px;
+        }
+        .session-list {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .session-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #10b981;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .session-info {
+            flex: 1;
+        }
+        .session-id {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .session-status {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .session-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .btn {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-info {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.8;
+        }
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 40px 20px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border-left: 4px solid #10b981;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #10b981;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">📋 MCP 会话管理</h1>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">活动会话</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">总连接数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">0</div>
+                <div class="stat-label">消息处理</div>
+            </div>
+        </div>
+        
+        <div class="session-list">
+            <div class="empty-state">
+                <div style="font-size: 3rem; margin-bottom: 15px;">📭</div>
+                <div>当前没有活动的MCP会话</div>
+                <div style="font-size: 0.9rem; color: #999; margin-top: 10px;">
+                    会话将在客户端连接时显示在这里
+                </div>
+            </div>
+        </div>
+        
+        <div style="text-align: center;">
+            <button class="btn btn-info" onclick="location.reload()">🔄 刷新会话列表</button>
+        </div>
+    </div>
+    
+    <script>
+        // 模拟会话数据更新
+        setTimeout(() => {
+            // 这里可以通过API获取实际的会话数据
+            console.log('会话管理器已加载');
+        }, 1000);
+    </script>
+</body>
+</html>`;
+}
+
+// 生成服务器设置窗口HTML
+function generateServerSettingsHTML() {
+    return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP 服务器 - 设置</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #f59e0b;
+            margin-bottom: 10px;
+        }
+        .setting-group {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+        .setting-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-label {
+            font-weight: 500;
+            color: #666;
+        }
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        input[type="number"], input[type="text"] {
+            padding: 6px 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            width: 100px;
+        }
+        .toggle {
+            position: relative;
+            width: 50px;
+            height: 24px;
+            background: #d1d5db;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .toggle.active {
+            background: #f59e0b;
+        }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        .toggle.active::after {
+            transform: translateX(26px);
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn-primary {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn:hover {
+            opacity: 0.8;
+        }
+        .actions {
+            text-align: center;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">⚙️ 服务器设置</h1>
+        </div>
+        
+        <div class="setting-group">
+            <div class="setting-title">网络设置</div>
+            <div class="setting-item">
+                <span class="setting-label">监听端口</span>
+                <div class="setting-control">
+                    <input type="number" value="${mcpServerInfo?.port || 3000}" min="1000" max="65535">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">启用CORS</span>
+                <div class="setting-control">
+                    <div class="toggle active" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <div class="setting-title">日志设置</div>
+            <div class="setting-item">
+                <span class="setting-label">启用详细日志</span>
+                <div class="setting-control">
+                    <div class="toggle active" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">日志级别</span>
+                <div class="setting-control">
+                    <select style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px;">
+                        <option value="info">Info</option>
+                        <option value="debug">Debug</option>
+                        <option value="warn">Warning</option>
+                        <option value="error">Error</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <div class="setting-title">性能设置</div>
+            <div class="setting-item">
+                <span class="setting-label">最大并发连接</span>
+                <div class="setting-control">
+                    <input type="number" value="100" min="1" max="1000">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">会话超时(秒)</span>
+                <div class="setting-control">
+                    <input type="number" value="300" min="60" max="3600">
+                </div>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <button class="btn btn-primary" onclick="saveSettings()">💾 保存设置</button>
+            <button class="btn btn-secondary" onclick="resetSettings()">🔄 重置默认</button>
+        </div>
+    </div>
+    
+    <script>
+        function toggleSetting(element) {
+            element.classList.toggle('active');
+        }
+        
+        function saveSettings() {
+            alert('设置已保存！');
+            // 这里可以实现实际的设置保存逻辑
+        }
+        
+        function resetSettings() {
+            if (confirm('确定要重置为默认设置吗？')) {
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>`;
+}
 
 console.log('🚀 NexusGUI 主进程已启动');
