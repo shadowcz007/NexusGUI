@@ -195,11 +195,9 @@ async function createWindow(config = {}) {
             console.log(`DEBUG: In createWindow, config.html type: ${typeof config.html}`);
             console.log(`DEBUG: In createWindow, config.html value:`, config.html ? config.html.substring(0, 50) + '...' : 'null/undefined/empty');
             // 检查是否使用 HTML 模式
-            if (config.html) {
-
-            } else {
-                console.log('📊 使用组件模式渲染');
-                win.webContents.send('render-dynamic-gui', config);
+            // HTML 模式：内容已通过 loadURL 直接加载
+            if (!config.html) {
+                console.warn('⚠️ 未提供 HTML 内容');
             }
 
             // 确保窗口显示并聚焦
@@ -225,16 +223,7 @@ async function createWindow(config = {}) {
             console.log('⚠️ 页面加载超时，强制显示窗口');
             isWindowShown = true;
 
-            // 发送默认配置
-            if (!config.html && config.components && config.components.length > 0) win.webContents.send('render-dynamic-gui', config || {
-                title: '加载中...',
-                components: [{
-                    type: 'heading',
-                    text: '页面加载中...',
-                    level: 2,
-                    className: 'text-xl text-gray-600'
-                }]
-            });
+            // HTML 模式不需要发送配置到渲染进程
 
             // 强制显示窗口
             win.show();
