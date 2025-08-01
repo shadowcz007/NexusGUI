@@ -42,6 +42,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return ipcRenderer.invoke('check-system-info');
     },
 
+    // 设置管理
+    invoke: (channel, data) => {
+        const validChannels = ['get-settings', 'save-settings', 'reset-settings'];
+        if (validChannels.includes(channel)) {
+            return ipcRenderer.invoke(channel, data);
+        }
+    },
+
     // 移除监听器
     removeAllListeners: (channel) => {
         const validChannels = ['render-dynamic-gui'];

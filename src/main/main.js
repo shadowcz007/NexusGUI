@@ -1,6 +1,7 @@
 const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const { initializeSSEMCPServer } = require('../mcp/sse/wrapper.js');
+const { settingsManager } = require('../config/settings.js');
 
 // 生成MCP服务器仪表板HTML
 function generateMCPDashboardHTML(mcpInfo) {
@@ -915,9 +916,12 @@ async function showServerSettings() {
 }
 
 app.whenReady().then(async() => {
+    // 从设置中获取端口
+    const serverPort = settingsManager.getSetting('server.port') || 3000;
+    
     mcpServerInfo = {
         status: 'failed',
-        port: 3000,
+        port: serverPort,
         endpoints: [],
         error: null,
         startTime: new Date().toISOString()
@@ -926,11 +930,11 @@ app.whenReady().then(async() => {
     // 初始化 SSE MCP 服务器
     try {
         const { sseServer: createSSEServer } = await initializeSSEMCPServer();
-        sseServer = createSSEServer(3000);
+        sseServer = createSSEServer(serverPort);
         
         mcpServerInfo = {
             status: 'running',
-            port: 3000,
+            port: serverPort,
             endpoints: [
                 { name: 'SSE 连接', path: '/mcp', description: '建立 Server-Sent Events 连接' },
                 { name: '消息处理', path: '/messages', description: '处理 JSON-RPC 消息' },
@@ -1026,6 +1030,152 @@ ipcMain.handle('check-window-status', async() => {
             bounds: win.getBounds()
         }))
     };
+});
+
+// 设置管理 IPC 处理程序
+ipcMain.handle('get-settings', async() => {
+    try {
+        return {
+            success: true,
+            settings: settingsManager.getAllSettings()
+        };
+    } catch (error) {
+        console.error('❌ 获取设置失败:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+});
+
+ipcMain.handle('save-settings', async(event, newSettings) => {
+    try {
+        console.log('📥 收到设置保存请求:', JSON.stringify(newSettings, null, 2));
+        
+        // 验证设置
+        console.log('🔍 开始验证设置...');
+        const validation = settingsManager.validateSettings(newSettings);
+        console.log('🔍 验证完成，结果:', validation);
+        
+        if (!validation.isValid) {
+            console.log('❌ 设置验证失败:', validation.errors);
+            return {
+                success: false,
+                error: '设置验证失败',
+                details: validation.errors
+            };
+        }
+        
+        console.log('✅ 设置验证通过');
+        
+        // 备份当前设置
+        const backupPath = settingsManager.backupSettings();
+        
+        // 更新设置
+        const success = settingsManager.updateSettings(newSettings);
+        
+        if (success) {
+            // 如果端口发生变化，需要重启服务器
+            const oldPort = mcpServerInfo.port;
+            const newPort = settingsManager.getSetting('server.port');
+            
+            if (oldPort !== newPort) {
+                console.log(`🔄 端口从 ${oldPort} 更改为 ${newPort}，需要重启服务器`);
+                
+                // 关闭旧服务器
+                if (sseServer) {
+                    sseServer.close();
+                }
+                
+                // 启动新服务器
+                try {
+                    const { sseServer: createSSEServer } = await initializeSSEMCPServer();
+                    sseServer = createSSEServer(newPort);
+                    
+                    mcpServerInfo.port = newPort;
+                    mcpServerInfo.status = 'running';
+                    mcpServerInfo.error = null;
+                    
+                    console.log(`✅ MCP 服务器已在新端口 ${newPort} 上重启`);
+                } catch (error) {
+                    console.error('❌ 重启服务器失败:', error);
+                    mcpServerInfo.status = 'failed';
+                    mcpServerInfo.error = error.message;
+                }
+                
+                // 更新托盘菜单
+                updateTrayMenu();
+            }
+            
+            return {
+                success: true,
+                message: '设置已保存',
+                backupPath,
+                serverRestarted: oldPort !== newPort
+            };
+        } else {
+            return {
+                success: false,
+                error: '保存设置失败'
+            };
+        }
+    } catch (error) {
+        console.error('❌ 保存设置时出错:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
+});
+
+ipcMain.handle('reset-settings', async() => {
+    try {
+        const backupPath = settingsManager.backupSettings();
+        const success = settingsManager.resetToDefaults();
+        
+        if (success) {
+            // 重启服务器以应用默认端口
+            const defaultPort = settingsManager.getSetting('server.port');
+            
+            if (sseServer) {
+                sseServer.close();
+            }
+            
+            try {
+                const { sseServer: createSSEServer } = await initializeSSEMCPServer();
+                sseServer = createSSEServer(defaultPort);
+                
+                mcpServerInfo.port = defaultPort;
+                mcpServerInfo.status = 'running';
+                mcpServerInfo.error = null;
+                
+                updateTrayMenu();
+                
+                console.log(`✅ 设置已重置，服务器在端口 ${defaultPort} 上重启`);
+            } catch (error) {
+                console.error('❌ 重启服务器失败:', error);
+                mcpServerInfo.status = 'failed';
+                mcpServerInfo.error = error.message;
+            }
+            
+            return {
+                success: true,
+                message: '设置已重置为默认值',
+                backupPath
+            };
+        } else {
+            return {
+                success: false,
+                error: '重置设置失败'
+            };
+        }
+    } catch (error) {
+        console.error('❌ 重置设置时出错:', error);
+        return {
+            success: false,
+            error: error.message
+        };
+    }
 });
 
 ipcMain.handle('get-form-data', async(event, formSelector) => {
@@ -1406,6 +1556,8 @@ function generateSessionManagerHTML() {
 
 // 生成服务器设置窗口HTML
 function generateServerSettingsHTML() {
+    const currentSettings = settingsManager.getAllSettings();
+    
     return `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -1472,12 +1624,12 @@ function generateServerSettingsHTML() {
             align-items: center;
             gap: 10px;
         }
-        input[type="number"], input[type="text"] {
+        input[type="number"], input[type="text"], select {
             padding: 6px 10px;
             border: 1px solid #d1d5db;
             border-radius: 6px;
             font-size: 0.9rem;
-            width: 100px;
+            width: 120px;
         }
         .toggle {
             position: relative;
@@ -1512,6 +1664,7 @@ function generateServerSettingsHTML() {
             font-weight: 600;
             cursor: pointer;
             margin: 5px;
+            transition: all 0.3s;
         }
         .btn-primary {
             background: #f59e0b;
@@ -1523,10 +1676,48 @@ function generateServerSettingsHTML() {
         }
         .btn:hover {
             opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
         .actions {
             text-align: center;
             margin-top: 30px;
+        }
+        .status-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 500;
+            display: none;
+        }
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #f59e0b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -1541,13 +1732,25 @@ function generateServerSettingsHTML() {
             <div class="setting-item">
                 <span class="setting-label">监听端口</span>
                 <div class="setting-control">
-                    <input type="number" value="${mcpServerInfo?.port || 3000}" min="1000" max="65535">
+                    <input type="number" id="server-port" value="${currentSettings.server.port}" min="1000" max="65535">
                 </div>
             </div>
             <div class="setting-item">
                 <span class="setting-label">启用CORS</span>
                 <div class="setting-control">
-                    <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    <div class="toggle ${currentSettings.server.enableCors ? 'active' : ''}" id="enable-cors" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">最大并发连接</span>
+                <div class="setting-control">
+                    <input type="number" id="max-connections" value="${currentSettings.server.maxConnections}" min="1" max="10000">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">会话超时(秒)</span>
+                <div class="setting-control">
+                    <input type="number" id="session-timeout" value="${currentSettings.server.sessionTimeout}" min="60" max="7200">
                 </div>
             </div>
         </div>
@@ -1557,42 +1760,44 @@ function generateServerSettingsHTML() {
             <div class="setting-item">
                 <span class="setting-label">启用详细日志</span>
                 <div class="setting-control">
-                    <div class="toggle active" onclick="toggleSetting(this)"></div>
+                    <div class="toggle ${currentSettings.logging.enableVerbose ? 'active' : ''}" id="enable-verbose" onclick="toggleSetting(this)"></div>
                 </div>
             </div>
             <div class="setting-item">
                 <span class="setting-label">日志级别</span>
                 <div class="setting-control">
-                    <select style="padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px;">
-                        <option value="info">Info</option>
-                        <option value="debug">Debug</option>
-                        <option value="warn">Warning</option>
-                        <option value="error">Error</option>
+                    <select id="log-level">
+                        <option value="debug" ${currentSettings.logging.level === 'debug' ? 'selected' : ''}>Debug</option>
+                        <option value="info" ${currentSettings.logging.level === 'info' ? 'selected' : ''}>Info</option>
+                        <option value="warn" ${currentSettings.logging.level === 'warn' ? 'selected' : ''}>Warning</option>
+                        <option value="error" ${currentSettings.logging.level === 'error' ? 'selected' : ''}>Error</option>
                     </select>
                 </div>
             </div>
         </div>
         
         <div class="setting-group">
-            <div class="setting-title">性能设置</div>
+            <div class="setting-title">界面设置</div>
             <div class="setting-item">
-                <span class="setting-label">最大并发连接</span>
+                <span class="setting-label">始终置顶</span>
                 <div class="setting-control">
-                    <input type="number" value="100" min="1" max="1000">
+                    <div class="toggle ${currentSettings.ui.alwaysOnTop ? 'active' : ''}" id="always-on-top" onclick="toggleSetting(this)"></div>
                 </div>
             </div>
             <div class="setting-item">
-                <span class="setting-label">会话超时(秒)</span>
+                <span class="setting-label">显示托盘图标</span>
                 <div class="setting-control">
-                    <input type="number" value="300" min="60" max="3600">
+                    <div class="toggle ${currentSettings.ui.showInTray ? 'active' : ''}" id="show-in-tray" onclick="toggleSetting(this)"></div>
                 </div>
             </div>
         </div>
         
         <div class="actions">
-            <button class="btn btn-primary" onclick="saveSettings()">💾 保存设置</button>
-            <button class="btn btn-secondary" onclick="resetSettings()">🔄 重置默认</button>
+            <button class="btn btn-primary" id="save-btn" onclick="saveSettings()">💾 保存设置</button>
+            <button class="btn btn-secondary" id="reset-btn" onclick="resetSettings()">🔄 重置默认</button>
         </div>
+        
+        <div class="status-message" id="status-message"></div>
     </div>
     
     <script>
@@ -1600,16 +1805,111 @@ function generateServerSettingsHTML() {
             element.classList.toggle('active');
         }
         
-        function saveSettings() {
-            alert('设置已保存！');
-            // 这里可以实现实际的设置保存逻辑
+        function showStatus(message, isError = false) {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = 'status-message ' + (isError ? 'status-error' : 'status-success');
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
         }
         
-        function resetSettings() {
-            if (confirm('确定要重置为默认设置吗？')) {
-                location.reload();
+        function setLoading(isLoading) {
+            const saveBtn = document.getElementById('save-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            
+            if (isLoading) {
+                saveBtn.innerHTML = '<span class="loading"></span>保存中...';
+                saveBtn.disabled = true;
+                resetBtn.disabled = true;
+            } else {
+                saveBtn.innerHTML = '💾 保存设置';
+                saveBtn.disabled = false;
+                resetBtn.disabled = false;
             }
         }
+        
+        async function saveSettings() {
+            try {
+                setLoading(true);
+                
+                // 收集所有设置
+                const settings = {
+                    'server.port': parseInt(document.getElementById('server-port').value),
+                    'server.enableCors': document.getElementById('enable-cors').classList.contains('active'),
+                    'server.maxConnections': parseInt(document.getElementById('max-connections').value),
+                    'server.sessionTimeout': parseInt(document.getElementById('session-timeout').value),
+                    'logging.enableVerbose': document.getElementById('enable-verbose').classList.contains('active'),
+                    'logging.level': document.getElementById('log-level').value,
+                    'ui.alwaysOnTop': document.getElementById('always-on-top').classList.contains('active'),
+                    'ui.showInTray': document.getElementById('show-in-tray').classList.contains('active')
+                };
+                
+                console.log('保存设置:', settings);
+                
+                // 调用主进程保存设置
+                const result = await window.electronAPI.invoke('save-settings', settings);
+                
+                if (result.success) {
+                    let message = result.message;
+                    if (result.serverRestarted) {
+                        message += '\\n服务器已在新端口上重启';
+                    }
+                    showStatus(message);
+                } else {
+                    showStatus('保存失败: ' + result.error, true);
+                    if (result.details) {
+                        console.error('验证错误:', result.details);
+                    }
+                }
+            } catch (error) {
+                console.error('保存设置时出错:', error);
+                showStatus('保存设置时出错: ' + error.message, true);
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        async function resetSettings() {
+            if (!confirm('确定要重置为默认设置吗？这将覆盖所有当前设置。')) {
+                return;
+            }
+            
+            try {
+                setLoading(true);
+                
+                const result = await window.electronAPI.invoke('reset-settings');
+                
+                if (result.success) {
+                    showStatus(result.message);
+                    // 延迟刷新页面以显示新的默认值
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showStatus('重置失败: ' + result.error, true);
+                }
+            } catch (error) {
+                console.error('重置设置时出错:', error);
+                showStatus('重置设置时出错: ' + error.message, true);
+            } finally {
+                setLoading(false);
+            }
+        }
+        
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('设置页面已加载');
+            
+            // 检查 electronAPI 是否可用
+            if (!window.electronAPI) {
+                showStatus('无法连接到主进程，设置功能不可用', true);
+                document.getElementById('save-btn').disabled = true;
+                document.getElementById('reset-btn').disabled = true;
+            }
+        });
     </script>
 </body>
 </html>`;
