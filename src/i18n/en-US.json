@@ -1,0 +1,83 @@
+{
+  "app": {
+    "title": "NexusGUI",
+    "welcome": "Welcome to NexusGUI",
+    "description": "A modern desktop application"
+  },
+  "menu": {
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "window": "Window",
+    "help": "Help",
+    "settings": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "about": "About",
+    "quit": "Quit",
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "saveAs": "Save As",
+    "close": "Close",
+    "undo": "Undo",
+    "redo": "Redo",
+    "cut": "Cut",
+    "copy": "Copy",
+    "paste": "Paste",
+    "selectAll": "Select All",
+    "find": "Find",
+    "replace": "Replace",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "fullscreen": "Fullscreen",
+    "reload": "Reload",
+    "toggleDevTools": "Toggle Developer Tools"
+  },
+  "dialog": {
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "ok": "OK",
+    "yes": "Yes",
+    "no": "No",
+    "save": "Save",
+    "dontSave": "Don't Save",
+    "error": "Error",
+    "warning": "Warning",
+    "info": "Information"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "appearance": "Appearance",
+    "language": "Language",
+    "theme": "Theme",
+    "autoDetectLanguage": "Auto-detect system language",
+    "lightTheme": "Light Theme",
+    "darkTheme": "Dark Theme",
+    "systemTheme": "Follow System"
+  },
+  "status": {
+    "ready": "Ready",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Saved",
+    "error": "Error occurred",
+    "connected": "Connected",
+    "disconnected": "Disconnected"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "finish": "Finish",
+    "apply": "Apply",
+    "reset": "Reset"
+  }
+}

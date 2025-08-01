@@ -47,6 +47,7 @@
             "src/renderer/renderer.js",
             "src/renderer/index.html",
             "src/renderer/styles.css",
+            "src/i18n/**/*",
             "src/mcp/sse/server.js",
             "src/mcp/sse/wrapper.js",
             "src/mcp/sse/transport.js",

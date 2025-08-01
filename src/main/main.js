@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electr
 const path = require('path');
 const { initializeSSEMCPServer } = require('../mcp/sse/wrapper.js');
 const { settingsManager } = require('../config/settings.js');
+const i18n = require('../i18n');
 
 // 生成MCP服务器仪表板HTML
 function generateMCPDashboardHTML(mcpInfo) {
@@ -447,8 +448,7 @@ async function createWindow(config = {}) {
                             console.log('✅ 页面重新加载完成，发送配置到渲染进程');
 
                             if (!config.html) {
-                                console.log('📊 使用组件模式重新渲染');
-                                win.webContents.send('render-dynamic-gui', config);
+                                console.warn('📊 '); 
                             }
 
                             // 确保窗口显示并聚焦

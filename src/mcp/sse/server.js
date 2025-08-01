@@ -58,7 +58,7 @@ const getServer = async() => {
                         `支持完整的 HTML、CSS 和 JavaScript，可以创建任意复杂的用户界面。`,
                         `支持丰富的窗口属性设置：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。`,
                         `可根据需要控制否是同步等待窗口结果`,
-                        `HTML 内容可以是文件路径或直接的 HTML 字符串。`,
+                        `HTML 内容可以是文件路径或直接的 HTML 字符串，优先使用HTML字符串。`,
                         `可使用的electronAPI={`,
                         `"sendResult":function(result){}, //用于同步等待结果`,
                         `}`

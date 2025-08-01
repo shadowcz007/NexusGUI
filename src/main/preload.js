@@ -2,67 +2,100 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // 暴露安全的 API 给渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
-    // 监听来自主进程的消息
-    on: (channel, callback) => {
-        const validChannels = ['render-dynamic-gui'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.on(channel, (event, ...args) => callback(...args));
-        }
+    // i18n 相关 API
+    getCurrentLocale: () => ipcRenderer.invoke('get-current-locale'),
+    setLocale: (locale) => ipcRenderer.invoke('set-locale', locale),
+    t: (key, fallback) => ipcRenderer.invoke('get-translation', key, fallback),
+    getSupportedLocales: () => ipcRenderer.invoke('get-supported-locales'),
+    
+    // 监听语言变更事件
+    onLanguageChanged: (callback) => {
+        ipcRenderer.on('language-changed', (event, locale) => {
+            callback(locale);
+        });
     },
-
-    // 发送消息到主进程
-    send: (channel, data) => {
-        const validChannels = ['mcp-result', 'open-dev-tools'];
-        if (validChannels.includes(channel)) {
-            if (channel === 'open-dev-tools') {
-                ipcRenderer.send(channel, data);
-            } else {
-                ipcRenderer.invoke(channel, data);
-            }
+    
+    // 移除语言变更监听器
+    removeLanguageChangedListener: () => {
+        ipcRenderer.removeAllListeners('language-changed');
+    },
+    
+    // 发送窗口结果（用于同步等待）
+    sendResult: (result) => {
+        const windowId = new URLSearchParams(window.location.search).get('windowId');
+        if (windowId) {
+            ipcRenderer.send(`window-result-${windowId}`, result);
         }
     },
     
-    // 发送窗口结果到主进程（用于同步等待结果）
-    sendResult: (result) => {
-        console.log('📤 发送窗口结果到主进程:', result);
-        return ipcRenderer.invoke('window-result', result);
-    },
+    // 原有的 API
+    openExternal: (url) => ipcRenderer.invoke('open-external', url),
+    getVersion: () => ipcRenderer.invoke('get-version'),
+    showMessageBox: (options) => ipcRenderer.invoke('show-message-box', options)
+});
 
-    // 获取表单数据
-    getFormData: (formSelector) => {
-        return ipcRenderer.invoke('get-form-data', formSelector);
-    },
-
-    // 检查窗口状态
-    checkWindowStatus: () => {
-        return ipcRenderer.invoke('check-window-status');
-    },
-
-    // 测试窗口创建
-    testWindowCreation: () => {
-        return ipcRenderer.invoke('test-window-creation');
-    },
-
-    // 检查系统信息
-    checkSystemInfo: () => {
-        return ipcRenderer.invoke('check-system-info');
-    },
-
-    // 设置管理
-    invoke: (channel, data) => {
-        const validChannels = ['get-settings', 'save-settings', 'reset-settings'];
-        if (validChannels.includes(channel)) {
-            return ipcRenderer.invoke(channel, data);
-        }
-    },
-
-    // 移除监听器
-    removeAllListeners: (channel) => {
-        const validChannels = ['render-dynamic-gui'];
-        if (validChannels.includes(channel)) {
-            ipcRenderer.removeAllListeners(channel);
-        }
+// 在页面加载完成后初始化 i18n
+window.addEventListener('DOMContentLoaded', async () => {
+    try {
+        // 获取当前语言
+        const currentLocale = await window.electronAPI.getCurrentLocale();
+        console.log('当前语言:', currentLocale);
+        
+        // 设置页面语言属性
+        document.documentElement.lang = currentLocale;
+        
+        // 监听语言变更
+        window.electronAPI.onLanguageChanged((newLocale) => {
+            console.log('语言已更改为:', newLocale);
+            document.documentElement.lang = newLocale;
+            
+            // 触发自定义事件，通知页面语言已更改
+            window.dispatchEvent(new CustomEvent('language-changed', { 
+                detail: { locale: newLocale } 
+            }));
+        });
+        
+    } catch (error) {
+        console.error('初始化 i18n 失败:', error);
     }
 });
 
-console.log('🔌 Preload 脚本已加载');
+// 提供全局翻译函数
+window.t = async (key, fallback) => {
+    try {
+        return await window.electronAPI.t(key, fallback);
+    } catch (error) {
+        console.error('翻译失败:', error);
+        return fallback || key;
+    }
+};
+
+// 提供表单数据获取函数
+window.getFormData = function() {
+    const formData = {};
+    
+    // 获取所有表单
+    const forms = document.querySelectorAll('form');
+    forms.forEach(form => {
+        const data = new FormData(form);
+        for (let [key, value] of data.entries()) {
+            formData[key] = value;
+        }
+    });
+    
+    // 也获取所有有 name 属性的输入元素
+    const inputs = document.querySelectorAll('input[name], select[name], textarea[name]');
+    inputs.forEach(input => {
+        if (input.type === 'checkbox' || input.type === 'radio') {
+            if (input.checked) {
+                formData[input.name] = input.value;
+            }
+        } else {
+            formData[input.name] = input.value;
+        }
+    });
+    
+    return formData;
+};
+
+console.log('🔗 Preload 脚本已加载，i18n 支持已启用');

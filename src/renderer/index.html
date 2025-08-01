@@ -1,48 +1,29 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en-US">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NexusGUI - 动态界面渲染器</title>
+    <title>NexusGUI</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Tailwind CSS CDN for styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js for chart components (optional) -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div id="app" class="container mx-auto p-4">
-        <!-- 动态内容将在这里渲染 -->
-        <div class="loading-placeholder text-center py-12">
-            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p class="text-gray-600">正在加载界面...</p>
+<body>
+    <div id="app-container" class="app-container">
+        <!-- 内容将通过 JavaScript 动态生成 -->
+        <div class="loading">
+            <div class="spinner"></div>
+            <p data-i18n="common.loading">加载中...</p>
         </div>
     </div>
-
-    <!-- 错误提示模态框 -->
-    <div id="error-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 max-w-md mx-4">
-            <div class="flex items-center mb-4">
-                <div class="flex-shrink-0">
-                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                </div>
-                <div class="ml-3">
-                    <h3 class="text-lg font-medium text-gray-900">系统错误</h3>
-                </div>
-            </div>
-            <div class="mb-4">
-                <p id="error-message" class="text-sm text-gray-700"></p>
-            </div>
-            <div class="flex justify-end">
-                <button id="close-error" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
-                    确定
-                </button>
-            </div>
-        </div>
+    
+    <!-- 动态内容容器 -->
+    <div id="dynamic-content" class="dynamic-content"></div>
+    
+    <!-- 调试信息 -->
+    <div id="debug-info" class="debug-info" style="display: none;">
+        <h4>调试信息</h4>
+        <div id="debug-content"></div>
     </div>
-
+    
     <script src="renderer.js"></script>
 </body>
 </html>
