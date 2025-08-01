@@ -391,6 +391,11 @@ let mcpServerInfo = null;
 
 // 统一 GUI 创建函数
 async function createWindow(config = {}) {
+    // 创建一个 Promise 用于同步等待窗口结果
+    let resolveWindowResult;
+    const windowResultPromise = config.waitForResult ? new Promise(resolve => {
+        resolveWindowResult = resolve;
+    }) : null;
     console.log('🔍 开始创建窗口...');
 
     // 检查是否复用现有窗口
@@ -659,9 +664,30 @@ async function createWindow(config = {}) {
     // 监听窗口关闭事件
     win.on('closed', () => {
         console.log('✅ 窗口已关闭');
+        
+        // 如果窗口有结果解析器但尚未解析，则在窗口关闭时解析
+        if (win.windowResultResolver) {
+            win.windowResultResolver({
+                action: 'close',
+                data: null
+            });
+        }
     });
-
-    return win;
+    
+    // 如果需要等待结果，存储解析器到窗口对象
+    if (config.waitForResult && resolveWindowResult) {
+        win.windowResultResolver = resolveWindowResult;
+    }
+    
+    // 如果需要等待结果，返回 Promise，否则返回窗口对象
+    if (config.waitForResult) {
+        console.log('⏳ 等待窗口结果...');
+        const result = await windowResultPromise;
+        console.log('✅ 收到窗口结果:', result);
+        return result;
+    } else {
+        return win;
+    }
 }
 
 // 暴露给全局，供 MCP 服务器调用
@@ -1007,6 +1033,26 @@ app.on('before-quit', () => {
 ipcMain.handle('mcp-result', async(event, result) => {
     console.log('📤 收到来自渲染进程的结果:', result);
     // 这里可以将结果发送回 MCP 客户端
+    return { success: true };
+});
+
+// 处理窗口结果（用于同步等待）
+ipcMain.handle('window-result', async(event, result) => {
+    console.log('📤 收到窗口结果:', result);
+    
+    // 获取发送结果的窗口
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (win && win.windowResultResolver) {
+        // 解析窗口结果 Promise
+        win.windowResultResolver({
+            action: 'submit',
+            data: result
+        });
+        
+        // 关闭窗口
+        win.close();
+    }
+    
     return { success: true };
 });
 

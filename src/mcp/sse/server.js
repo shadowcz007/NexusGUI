@@ -53,7 +53,16 @@ const getServer = async() => {
         return {
             tools: [{
                     name: 'render-gui',
-                    description: '渲染 HTML 界面到桌面窗口。支持完整的 HTML、CSS 和 JavaScript，可以创建任意复杂的用户界面。支持丰富的窗口属性设置：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。HTML 内容可以是文件路径或直接的 HTML 字符串。',
+                    description: [
+                        `渲染 HTML 界面到桌面窗口。`,
+                        `支持完整的 HTML、CSS 和 JavaScript，可以创建任意复杂的用户界面。`,
+                        `支持丰富的窗口属性设置：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。`,
+                        `可根据需要控制否是同步等待窗口结果`,
+                        `HTML 内容可以是文件路径或直接的 HTML 字符串。`,
+                        `可使用的electronAPI={`,
+                        `"sendResult":function(result){}, //用于同步等待结果`,
+                        `}`
+                    ].join('\n'),
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -61,6 +70,11 @@ const getServer = async() => {
                                 type: 'string',
                                 description: '窗口标题',
                                 default: '动态界面'
+                            },
+                            waitForResult: {
+                                type: 'boolean',
+                                description: '是否同步等待窗口结果。当设置为 true 时，函数将阻塞直到窗口关闭或提交结果。',
+                                default: false
                             },
                             width: {
                                 type: 'number',
@@ -205,11 +219,16 @@ const getServer = async() => {
                                 },
                                 default: {}
                             },
-                            reuseWindow: {
-                                type: 'boolean',
-                                description: '是否复用现有窗口而不是创建新窗口。当设置为 true 时，如果存在可用窗口，将更新现有窗口的内容和属性，而不是销毁并重新创建窗口。',
-                                default: false
-                            }
+        reuseWindow: {
+          "type": "boolean",
+          "description": "是否复用现有窗口而不是创建新窗口。当设置为 true 时，如果存在可用窗口，将更新现有窗口的内容和属性，而不是销毁并重新创建窗口。",
+          "default": false
+        },
+        waitForResult: {
+          "type": "boolean",
+          "description": "是否同步等待窗口结果。当设置为 true 时，函数将阻塞直到窗口关闭或提交结果。",
+          "default": false
+        }
                         },
                         required: ['html'],
                         examples: [{
@@ -370,10 +389,11 @@ async function handleRenderDynamicGUI(args) {
             html = null,
             data = {},
             callbacks = {},
-            reuseWindow = false
+            reuseWindow = false,
+            waitForResult = false // 新增参数：是否等待结果
     } = args;
 
-    console.log(`🎨 渲染动态 GUI: ${title}`);
+    console.log(`🎨 渲染动态 GUI: ${title}${waitForResult ? ' (同步等待结果)' : ''}`);
 
     // 处理 HTML 输入（按优先级）
     let processedHtml = null;
@@ -424,9 +444,10 @@ async function handleRenderDynamicGUI(args) {
     }
 
     try {
-        console.log('🌐 MCP 调用窗口创建:', { title, width, height, inputType });
+        console.log('🌐 MCP 调用窗口创建:', { title, width, height, inputType, waitForResult });
 
-        await global.createWindow({
+        // 创建窗口配置
+        const windowConfig = {
             type: 'dynamic',
             title,
             width,
@@ -452,32 +473,53 @@ async function handleRenderDynamicGUI(args) {
             html: processedHtml,
             data,
             callbacks,
-            reuseWindow
-        });
-
-        console.log('✅ MCP 窗口创建成功');
-
-        // 构建窗口属性信息
-        const windowProps = [];
-        if (showMenuBar) windowProps.push('显示菜单栏');
-        if (alwaysOnTop) windowProps.push('始终置顶');
-        if (skipTaskbar) windowProps.push('隐藏任务栏');
-        if (!frame) windowProps.push('无边框');
-        if (!resizable) windowProps.push('固定大小');
-        if (fullscreen) windowProps.push('全屏');
-        if (opacity !== undefined) windowProps.push(`透明度: ${opacity}`);
-        if (zoomFactor !== 1.0) windowProps.push(`缩放: ${zoomFactor}`);
-
-        const windowInfo = windowProps.length > 0 ? `\n🔧 窗口属性: ${windowProps.join(', ')}` : '';
-        const reuseInfo = reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
-        const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
-
-        return {
-            content: [{
-                type: 'text',
-                text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
-            }]
+            reuseWindow,
+            waitForResult // 传递等待结果参数
         };
+
+        // 根据 waitForResult 参数决定是否等待结果
+        if (waitForResult) {
+            // 同步等待窗口结果
+            const result = await global.createWindow(windowConfig);
+            
+            console.log('✅ MCP 窗口操作完成，结果:', result);
+
+            // 返回窗口操作结果
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ 动态界面 "${title}" 操作已完成\n📱 窗口尺寸: ${width}x${height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}`
+                }],
+                result: result // 将窗口操作结果包含在返回值中
+            };
+        } else {
+            // 异步创建窗口（原有行为）
+            await global.createWindow(windowConfig);
+            
+            console.log('✅ MCP 窗口创建成功');
+
+            // 构建窗口属性信息
+            const windowProps = [];
+            if (showMenuBar) windowProps.push('显示菜单栏');
+            if (alwaysOnTop) windowProps.push('始终置顶');
+            if (skipTaskbar) windowProps.push('隐藏任务栏');
+            if (!frame) windowProps.push('无边框');
+            if (!resizable) windowProps.push('固定大小');
+            if (fullscreen) windowProps.push('全屏');
+            if (opacity !== undefined) windowProps.push(`透明度: ${opacity}`);
+            if (zoomFactor !== 1.0) windowProps.push(`缩放: ${zoomFactor}`);
+
+            const windowInfo = windowProps.length > 0 ? `\n🔧 窗口属性: ${windowProps.join(', ')}` : '';
+            const reuseInfo = reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
+            const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
+                }]
+            };
+        }
     } catch (error) {
         console.error('❌ MCP 窗口创建失败:', error);
         throw new Error(`窗口创建失败: ${error.message}`);

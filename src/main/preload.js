@@ -21,6 +21,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
             }
         }
     },
+    
+    // 发送窗口结果到主进程（用于同步等待结果）
+    sendResult: (result) => {
+        console.log('📤 发送窗口结果到主进程:', result);
+        return ipcRenderer.invoke('window-result', result);
+    },
 
     // 获取表单数据
     getFormData: (formSelector) => {
