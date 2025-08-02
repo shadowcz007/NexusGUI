@@ -316,26 +316,8 @@ const getServer = async() => {
                             }
                         ]
                     }
-                },
-                {
-                    name: 'start-notification-stream',
-                    description: '开始发送定期通知',
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            interval: {
-                                type: 'number',
-                                description: '通知间隔（毫秒）',
-                                default: 1000
-                            },
-                            count: {
-                                type: 'number',
-                                description: '通知数量',
-                                default: 10
-                            }
-                        }
-                    }
                 }
+                 
             ]
         };
     });
