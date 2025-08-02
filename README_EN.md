@@ -2,7 +2,7 @@
 
 English | [中文](./README.md)
 
-AI-generated GUI interfaces through MCP protocol with desktop rendering
+Pass GUI definitions through MCP to enable AI-generated interfaces with desktop rendering
 
 ## 🎥 Demo Video
 
@@ -25,7 +25,7 @@ npm run start-with-window
 ```
 
 ### Using MCP Tools
-After startup, the application will start an MCP server at `http://localhost:3001`. You can use it as follows:
+After startup, the application will launch an MCP server at `http://localhost:3001`. You can use it as follows:
 
 1. **Connect to MCP Server**: `http://localhost:3001/mcp`
 2. **Call render-gui tool**:
@@ -39,6 +39,14 @@ After startup, the application will start an MCP server at `http://localhost:300
 ```
 
 ## 🆕 Latest Features
+
+### 🆕 Refactored Modular Architecture
+- ✅ **Object-Oriented Design**: Class-based tool architecture for improved maintainability
+- ✅ **Tool Registry**: Unified management of all MCP tool registration, lookup, and execution
+- ✅ **Plugin-based Extension**: New tools only need to inherit base class and register, supports hot-swapping
+- ✅ **Schema Separation**: Tool definitions separated from implementation for easier maintenance
+- ✅ **Unit Testing**: Each tool can be tested independently, improving code quality
+- ✅ **Error Isolation**: Individual tool errors don't affect other tools
 
 ### System Tray Integration 🆕
 - ✅ Support system tray mode without keeping main window open
@@ -72,6 +80,16 @@ After startup, the application will start an MCP server at `http://localhost:300
 - ✅ Support window behavior control (always on top, taskbar display, resizable, etc.)
 - ✅ Support window appearance settings (opacity, zoom factor, fullscreen mode)
 
+## 🆕 Refactored Architecture
+
+### Modular Tool System 🆕
+- ✅ **Object-Oriented Design**: Class-based tool architecture for improved code maintainability
+- ✅ **Tool Registry**: Unified management of all MCP tool registration, lookup, and execution
+- ✅ **Plugin-based Extension**: New tools only need to inherit base class and register, supports hot-swapping
+- ✅ **Schema Separation**: Tool definitions separated from implementation for easier maintenance and extension
+- ✅ **Unit Testing**: Each tool can be tested independently, improving code quality
+- ✅ **Error Isolation**: Individual tool errors don't affect other tools
+
 ## Project Structure
 
 ```
@@ -86,9 +104,26 @@ NexusGUI/
 │   │   └── styles.css     # Style files
 │   └── mcp/               # MCP server code
 │       ├── sse/           # SSE transport related
-│       │   ├── server.js  # SSE MCP server
+│       │   ├── server.js  # Refactored SSE MCP server
 │       │   ├── wrapper.js # SSE server wrapper
-│       │   └── transport.js # SSE transport layer
+│       │   ├── transport.js # SSE transport layer
+│       │   ├── tools/     # 🆕 Tool modules directory
+│       │   │   ├── BaseToolHandler.js    # Base tool handler
+│       │   │   ├── ToolRegistry.js       # Tool registry
+│       │   │   ├── RenderGUITool.js      # GUI rendering tool
+│       │   │   ├── InjectJSTool.js       # JS injection tool
+│       │   │   ├── NotificationTool.js   # Notification tool
+│       │   │   ├── index.js             # Unified exports
+│       │   │   ├── test.js              # Tool tests
+│       │   │   └── README.md            # Architecture documentation
+│       │   ├── schemas/   # 🆕 Schema definitions directory
+│       │   │   ├── renderGUISchema.js    # GUI tool schema
+│       │   │   ├── injectJSSchema.js     # JS injection tool schema
+│       │   │   └── notificationSchema.js # Notification tool schema
+│       │   ├── utils/     # 🆕 Utility classes directory
+│       │   │   └── htmlUtils.js         # HTML processing utilities
+│       │   ├── validators/ # 🆕 Validators directory
+│       │   └── MIGRATION.md # 🆕 Refactoring migration guide
 │       └── stdio/         # Standard transport related (backup)
 │           ├── server.mjs # Standard MCP server
 │           └── wrapper.js # Standard server wrapper
@@ -103,19 +138,41 @@ NexusGUI/
 └── README.md            # Project documentation
 ```
 
-## File Description
+## File Descriptions
 
 ### Core Files
-- **`src/main/main.js`**: Electron main process, responsible for window management and MCP server integration
+- **`src/main/main.js`**: Electron main process, handles window management and MCP server integration
 - **`src/main/preload.js`**: Preload script providing secure IPC communication interface
-- **`src/renderer/renderer.js`**: Dynamic interface renderer that receives GUI definitions and creates interfaces
+- **`src/renderer/renderer.js`**: Dynamic interface renderer, receives GUI definitions and creates interfaces
 - **`src/renderer/index.html`**: Main interface HTML template
 - **`src/renderer/styles.css`**: Interface style files
 
-### MCP Server
-- **`src/mcp/sse/server.js`**: SSE transport MCP server (primary)
+### MCP Server (Refactored)
+- **`src/mcp/sse/server.js`**: Refactored SSE MCP server (using modular architecture)
 - **`src/mcp/sse/wrapper.js`**: SSE server wrapper
 - **`src/mcp/sse/transport.js`**: SSE transport layer implementation
+
+### 🆕 Tool System Architecture
+- **`src/mcp/sse/tools/BaseToolHandler.js`**: Base tool handler (abstract base class)
+- **`src/mcp/sse/tools/ToolRegistry.js`**: Tool registry (unified management)
+- **`src/mcp/sse/tools/RenderGUITool.js`**: GUI rendering tool implementation
+- **`src/mcp/sse/tools/InjectJSTool.js`**: JavaScript injection tool implementation
+- **`src/mcp/sse/tools/NotificationTool.js`**: Notification tool implementation
+- **`src/mcp/sse/tools/index.js`**: Tool module unified exports
+- **`src/mcp/sse/tools/test.js`**: Tool system test file
+- **`src/mcp/sse/tools/README.md`**: Detailed architecture documentation
+
+### 🆕 Schema Definitions
+- **`src/mcp/sse/schemas/renderGUISchema.js`**: GUI rendering tool schema definition
+- **`src/mcp/sse/schemas/injectJSSchema.js`**: JS injection tool schema definition
+- **`src/mcp/sse/schemas/notificationSchema.js`**: Notification tool schema definition
+
+### 🆕 Utilities and Validators
+- **`src/mcp/sse/utils/htmlUtils.js`**: HTML processing and window configuration validation utilities
+- **`src/mcp/sse/validators/`**: Validators directory (reserved for extension)
+- **`src/mcp/sse/MIGRATION.md`**: Refactoring migration guide and best practices
+
+### Backup Server
 - **`src/mcp/stdio/server.mjs`**: Standard transport MCP server (backup)
 - **`src/mcp/stdio/wrapper.js`**: Standard server wrapper
 
@@ -148,7 +205,7 @@ npm run build
 ```
 
 ### MCP Server Endpoints
-After startup, the MCP server will provide services at the following endpoints:
+After startup, the MCP server provides services at the following endpoints:
 - **SSE Connection**: `http://localhost:3001/mcp`
 - **Message Processing**: `http://localhost:3001/messages`
 - **Health Check**: `http://localhost:3001/health`
@@ -167,11 +224,11 @@ After startup, the MCP server will provide services at the following endpoints:
   "reuseWindow": true,  // Key parameter: enable window reuse
   "components": [
     { "type": "heading", "text": "Reused Window", "level": 1 },
-    { "type": "text", "text": "This window reused the previous window" },
+    { "type": "text", "text": "This window reuses the previous window" },
     { "type": "button", "text": "Click Me", "onClick": "handleClick" }
   ],
   "callbacks": {
-    "handleClick": "alert('Reused window button clicked!');"
+    "handleClick": "alert('Button in reused window was clicked!');"
   }
 }
 ```
@@ -197,10 +254,10 @@ After startup, the MCP server will provide services at the following endpoints:
 ### Advantages of Window Reuse
 
 - **Maintain Window Position**: Window won't reposition to screen center
-- **Maintain Window Size**: Keep original size if new config doesn't specify dimensions
-- **Reduce Flickering**: Avoid window closing and recreation process
-- **Improve Performance**: Reduce resource consumption and initialization time
-- **Better User Experience**: Maintain continuous window state
+- **Maintain Window Size**: If new config doesn't specify size, keeps original size
+- **Reduce Flickering**: Avoids window close and recreate process
+- **Improve Performance**: Reduces resource consumption and initialization time
+- **Better User Experience**: Maintains continuous window state
 
 ## HTML Mode Usage
 
@@ -229,7 +286,7 @@ After startup, the MCP server will provide services at the following endpoints:
   "title": "User Confirmation Dialog",
   "width": 400,
   "height": 300,
-  "waitForResult": true,  // Wait for result synchronously
+  "waitForResult": true,  // Synchronously wait for result
   "html": `
     <div style="padding: 20px; text-align: center;">
       <h2>Confirm Operation</h2>
@@ -277,11 +334,11 @@ After startup, the MCP server will provide services at the following endpoints:
       
       <form id="userForm">
         <div style="margin-bottom: 15px;">
-          <label>Name: </label>
+          <label>Name:</label>
           <input type="text" name="userName" value="{{userName}}" style="width: 200px; padding: 5px;">
         </div>
         <div style="margin-bottom: 15px;">
-          <label>Age: </label>
+          <label>Age:</label>
           <input type="number" name="userAge" value="{{userAge}}" style="width: 200px; padding: 5px;">
         </div>
         <button type="button" onclick="handleSubmit()">Submit</button>
@@ -301,31 +358,137 @@ After startup, the MCP server will provide services at the following endpoints:
 
 ### Feature Highlights
 
-- **Complete HTML Support**: Support all HTML tags and attributes
-- **CSS Styling**: Support inline styles and external CSS
-- **JavaScript Interaction**: Support event handling and dynamic interaction
-- **Synchronous Waiting**: Synchronously wait for user operation results via `waitForResult` parameter
-- **Window Reuse**: Reuse existing windows via `reuseWindow` parameter
-- **Data Binding**: Support initial data injection and template variable replacement
-- **Callback Functions**: Support custom callback function injection
-- **Built-in APIs**: Provide `electronAPI.sendResult()` and `getFormData()` functions
+- **Complete HTML Support**: Supports all HTML tags and attributes
+- **CSS Styling**: Supports inline styles and external CSS
+- **JavaScript Interaction**: Supports event handling and dynamic interaction
+- **Synchronous Waiting**: Use `waitForResult` parameter to synchronously wait for user operation results
+- **Window Reuse**: Use `reuseWindow` parameter to reuse existing windows
+- **Data Binding**: Supports initial data injection and template variable replacement
+- **Callback Functions**: Supports custom callback function injection
+- **Built-in APIs**: Provides `electronAPI.sendResult()` and `getFormData()` functions
 
-## Technology Stack
+## Adding New Tools
+
+### Step 1: Create Tool Class
+
+```javascript
+// src/mcp/sse/tools/MyCustomTool.js
+const BaseToolHandler = require('./BaseToolHandler');
+
+class MyCustomTool extends BaseToolHandler {
+    constructor() {
+        super('my-custom-tool', 'My custom tool description');
+    }
+    
+    getSchema() {
+        return {
+            type: 'object',
+            properties: {
+                param1: {
+                    type: 'string',
+                    description: 'Parameter 1 description'
+                }
+            },
+            required: ['param1']
+        };
+    }
+    
+    async execute(args) {
+        // Validate parameters
+        this.validate(args);
+        
+        // Execute tool logic
+        const result = await this.doSomething(args.param1);
+        
+        // Return result
+        return {
+            content: [{
+                type: 'text',
+                text: `✅ Custom tool executed successfully: ${result}`
+            }]
+        };
+    }
+    
+    async doSomething(param) {
+        // Specific business logic
+        return `Processed parameter: ${param}`;
+    }
+}
+
+module.exports = MyCustomTool;
+```
+
+### Step 2: Register Tool
+
+```javascript
+// Add to initializeToolRegistry function in server.js
+const MyCustomTool = require('./tools/MyCustomTool');
+
+async function initializeToolRegistry() {
+    if (!globalToolRegistry) {
+        globalToolRegistry = new ToolRegistry();
+        
+        // Register all tools
+        globalToolRegistry.register(new RenderGUITool());
+        globalToolRegistry.register(new InjectJSTool());
+        globalToolRegistry.register(new NotificationTool());
+        globalToolRegistry.register(new MyCustomTool()); // New addition
+        
+        await globalToolRegistry.initialize();
+    }
+    
+    return globalToolRegistry;
+}
+```
+
+## Tech Stack
 
 - **Electron**: Desktop application framework (v27.0.0)
 - **Model Context Protocol (MCP)**: AI communication protocol (@modelcontextprotocol/sdk v0.4.0)
 - **Express**: Web server framework (v4.18.2)
 - **Server-Sent Events (SSE)**: Real-time communication transport layer
-- **CORS**: Cross-Origin Resource Sharing support
+- **CORS**: Cross-origin resource sharing support
 - **Zod**: Data validation and type safety
 - **Jest**: Testing framework (v29.7.0)
 
 ## Core Features
 
-- 🎨 **Dynamic Interface Rendering**: Support both HTML string and file path rendering modes
-- 🔄 **Window Reuse**: Intelligent window management to reduce resource consumption
-- ⏱️ **Synchronous Waiting**: Support synchronous waiting for user operation results
-- 🎛️ **Rich Window Properties**: Support transparency, always on top, fullscreen and other window settings
-- 🌐 **Cross-Origin Support**: Built-in CORS support for easy integration
-- 🔍 **Real-time Debugging**: Provide health check and session debug endpoints
-- 📱 **System Tray**: Support background running and tray management
+- 🎨 **Dynamic Interface Rendering**: Supports both HTML string and file path rendering modes
+- 🔄 **Window Reuse**: Intelligent window management, reduces resource consumption
+- ⏱️ **Synchronous Waiting**: Supports synchronous waiting for user operation results
+- 🎛️ **Rich Window Properties**: Supports transparency, always on top, fullscreen, and many other window settings
+- 🌐 **Cross-origin Support**: Built-in CORS support for easy integration
+- 🔍 **Real-time Debugging**: Provides health check and session debug endpoints
+- 📱 **System Tray**: Supports background running and tray management
+- 🏗️ **Modular Architecture**: Object-oriented tool system for better maintainability and extensibility
+
+## Architecture Benefits
+
+### ✅ Significantly Improved Maintainability
+- **Code Separation**: Each tool is implemented independently, modifications don't affect each other
+- **Clear Responsibilities**: Each class is responsible for only one specific function
+- **Unified Interface**: All tools follow the same interface specification
+
+### ✅ Enhanced Extensibility
+- **Plugin Architecture**: New tools only need to inherit base class and register
+- **Independent Schema**: Tool definitions separated from implementation
+- **Hot-swapping Support**: Supports dynamic tool registration and deregistration
+
+### ✅ Improved Testability
+- **Unit Testing**: Each tool can be tested independently
+- **Dependency Mocking**: Easy to mock external dependencies
+- **Error Isolation**: Tool errors don't affect each other
+
+### ✅ Better Code Reuse
+- **Base Functionality**: Common logic implemented in base class
+- **Utility Classes**: HTML processing utilities can be reused across multiple tools
+- **Configuration Management**: Unified validation and processing logic
+
+## Migration Guide
+
+For detailed information about the refactoring and how to migrate or extend the system, please refer to:
+- `src/mcp/sse/tools/README.md` - Detailed architecture documentation
+- `src/mcp/sse/MIGRATION.md` - Complete migration guide and best practices
+- `src/mcp/sse/tools/test.js` - Test examples and validation code
+
+The refactored system has been thoroughly tested and is fully backward compatible with existing MCP clients!
