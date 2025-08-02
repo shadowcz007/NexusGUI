@@ -48,7 +48,7 @@ const getServer = async() => {
         },
     });
 
-    // 注册工具：render-gui
+    // 注册工具：render-gui 和 inject-js
     server.setRequestHandler(ListToolsRequestSchema, async() => {
         return {
             tools: [{
@@ -255,6 +255,69 @@ const getServer = async() => {
                     }
                 },
                 {
+                    name: 'inject-js',
+                    description: [
+                        `向当前活动窗口注入 JavaScript 代码。`,
+                        `可用于动态更新窗口内容、修改样式、添加事件监听器等。`,
+                        `支持同步或异步执行代码，并可返回执行结果。`,
+                        `可以传递参数给注入的代码，以实现更灵活的操作。`,
+                        `注入的代码在窗口的上下文中执行，可以访问窗口的所有 DOM 元素和 JavaScript API。`,
+                        `可使用的electronAPI={`,
+                        `"sendResult":function(result){}, //用于同步等待结果`,
+                        `}`
+                    ].join('\n'),
+                    inputSchema: {
+                        type: 'object',
+                        properties: {
+                            code: {
+                                type: 'string',
+                                description: '要注入的 JavaScript 代码。可以是函数定义、表达式或语句。'
+                            },
+                            waitForResult: {
+                                type: 'boolean',
+                                description: '是否等待代码执行结果。如果为 true，将阻塞直到代码执行完成并返回结果。',
+                                default: false
+                            },
+                            params: {
+                                type: 'object',
+                                description: '传递给注入代码的参数对象。可在注入代码中通过 injectedParams 变量访问。',
+                                additionalProperties: true,
+                                default: {}
+                            }
+                        },
+                        required: ['code'],
+                        examples: [{
+                                title: '更新页面标题',
+                                description: '修改当前窗口的页面标题',
+                                value: {
+                                    code: 'document.title = "新标题"; return "标题已更新";',
+                                    waitForResult: true
+                                }
+                            },
+                            {
+                                title: '获取表单数据',
+                                description: '获取页面中表单的所有字段值',
+                                value: {
+                                    code: 'return Array.from(document.querySelectorAll("form input, form select, form textarea")).reduce((data, input) => { data[input.name] = input.value; return data; }, {});',
+                                    waitForResult: true
+                                }
+                            },
+                            {
+                                title: '使用参数更新内容',
+                                description: '使用传入的参数更新页面内容',
+                                value: {
+                                    code: 'const el = document.getElementById(injectedParams.elementId); if(el) { el.innerHTML = injectedParams.content; return true; } return false;',
+                                    waitForResult: true,
+                                    params: {
+                                        elementId: "status",
+                                        content: "<strong>更新成功!</strong>"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                {
                     name: 'start-notification-stream',
                     description: '开始发送定期通知',
                     inputSchema: {
@@ -286,7 +349,8 @@ const getServer = async() => {
                 case 'render-gui':
                     return await handleRenderDynamicGUI(args);
 
-
+                case 'inject-js':
+                    return await handleInjectJs(args);
 
                 case 'start-notification-stream':
                     return await handleStartNotificationStream(args, server);
@@ -360,6 +424,82 @@ function isHtmlString(input) {
     return typeof input === 'string' && 
            input.includes('<') && 
            input.includes('>');
+}
+
+// 处理 JavaScript 代码注入
+async function handleInjectJs(args) {
+    const {
+        code = '',
+        waitForResult = false,
+        params = {}
+    } = args;
+
+    console.log(`💉 注入 JavaScript 代码到当前窗口${waitForResult ? ' (同步等待结果)' : ''}`);
+
+    if (!code || typeof code !== 'string') {
+        throw new Error('代码不能为空且必须是字符串');
+    }
+
+    // 验证代码长度
+    if (code.length > 1000000) {
+        throw new Error(`代码长度超出限制 (${code.length} > 1000000)`);
+    }
+
+    // 检查主进程支持
+    if (!global.injectJsToWindow) {
+        console.warn('⚠️ 主进程中未找到 injectJsToWindow 函数');
+        
+        // 返回详细的设置指导
+        return {
+            content: [{
+                type: 'text',
+                text: `❌ 代码注入功能未启用\n\n📋 需要在 Electron 主进程中添加以下代码：\n\n\`\`\`javascript\nconst { BrowserWindow } = require('electron');\n\n// 全局函数：向当前活动窗口注入 JavaScript 代码\nglobal.injectJsToWindow = async (config) => {\n    const { code, waitForResult, params } = config;\n    \n    // 获取当前焦点窗口\n    let targetWindow = BrowserWindow.getFocusedWindow();\n    \n    // 如果没有焦点窗口，尝试获取所有窗口中的第一个\n    if (!targetWindow) {\n        const allWindows = BrowserWindow.getAllWindows();\n        if (allWindows.length > 0) {\n            targetWindow = allWindows[0];\n        }\n    }\n    \n    if (!targetWindow) {\n        throw new Error('找不到可用的窗口');\n    }\n    \n    // 准备要执行的代码\n    const wrappedCode = \`\n        (function() {\n            try {\n                const injectedParams = \${JSON.stringify(params)};\n                const result = (function() {\n                    \${code}\n                })();\n                return result;\n            } catch (error) {\n                return { error: error.message };\n            }\n        })();\n    \`;\n    \n    // 执行代码\n    if (waitForResult) {\n        const result = await targetWindow.webContents.executeJavaScript(wrappedCode);\n        return result;\n    } else {\n        targetWindow.webContents.executeJavaScript(wrappedCode)\n            .catch(error => console.error('异步代码执行错误:', error));\n        return { status: 'executing' };\n    }\n};\n\`\`\`\n\n📝 代码预览：\n${code.substring(0, 200)}${code.length > 200 ? '...' : ''}\n\n🔧 请将上述代码添加到你的 Electron 主进程文件中，然后重新启动应用。`
+            }]
+        };
+    }
+
+    try {
+        console.log('💉 MCP 调用代码注入:', { codeLength: code.length, waitForResult });
+
+        // 创建注入配置
+        const injectConfig = {
+            code,
+            waitForResult,
+            params
+        };
+
+        // 根据 waitForResult 参数决定是否等待结果
+        if (waitForResult) {
+            // 同步等待执行结果
+            const result = await global.injectJsToWindow(injectConfig);
+            
+            console.log('✅ MCP 代码注入完成，结果:', result);
+
+            // 返回执行结果
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ JavaScript 代码已成功注入到当前窗口\n📊 执行结果: ${JSON.stringify(result)}`
+                }],
+                result: result // 将执行结果包含在返回值中
+            };
+        } else {
+            // 异步注入代码（不等待结果）
+            await global.injectJsToWindow(injectConfig);
+            
+            console.log('✅ MCP 代码注入成功');
+
+            return {
+                content: [{
+                    type: 'text',
+                    text: `✅ JavaScript 代码已成功注入到当前窗口\n📝 代码长度: ${code.length} 字符\n⏱️ 异步执行中，未等待结果`
+                }]
+            };
+        }
+    } catch (error) {
+        console.error('❌ MCP 代码注入失败:', error);
+        throw new Error(`代码注入失败: ${error.message}`);
+    }
 }
 
 // 处理动态 GUI 渲染

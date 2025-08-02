@@ -697,6 +697,77 @@ global.createWindow = async(config = {}) => {
     return await createWindow(config);
 };
 
+// 全局函数：向当前活动窗口注入 JavaScript 代码
+global.injectJsToWindow = async (config) => {
+    const { code, waitForResult, params } = config;
+    
+    console.log('🔧 主进程：准备注入 JavaScript 代码');
+    
+    // 获取当前焦点窗口
+    let targetWindow = BrowserWindow.getFocusedWindow();
+    
+    // 如果没有焦点窗口，尝试获取所有窗口中的第一个
+    if (!targetWindow) {
+        const allWindows = BrowserWindow.getAllWindows();
+        if (allWindows.length > 0) {
+            targetWindow = allWindows[0];
+            console.log('⚠️ 没有焦点窗口，使用第一个可用窗口');
+        }
+    }
+    
+    if (!targetWindow) {
+        throw new Error('找不到可用的窗口');
+    }
+    
+    console.log(`🎯 目标窗口 ID: ${targetWindow.id}, 标题: "${targetWindow.getTitle()}"`);
+    
+    // 准备要执行的代码
+    const wrappedCode = `
+        (function() {
+            try {
+                // 定义注入参数，供注入的代码使用
+                const injectedParams = ${JSON.stringify(params)};
+                
+                // 执行注入的代码
+                const result = (function() {
+                    ${code}
+                })();
+                
+                return result;
+            } catch (error) {
+                console.error('注入代码执行错误:', error);
+                return { error: error.message, stack: error.stack };
+            }
+        })();
+    `;
+    
+    // 执行代码
+    if (waitForResult) {
+        // 同步等待结果
+        try {
+            console.log('⏳ 同步执行代码并等待结果...');
+            const result = await targetWindow.webContents.executeJavaScript(wrappedCode);
+            console.log('✅ 代码执行完成，结果:', result);
+            return result;
+        } catch (error) {
+            console.error('❌ 代码执行失败:', error);
+            throw new Error(`代码执行失败: ${error.message}`);
+        }
+    } else {
+        // 异步执行，不等待结果
+        console.log('🚀 异步执行代码...');
+        targetWindow.webContents.executeJavaScript(wrappedCode)
+            .then(result => {
+                console.log('✅ 异步代码执行完成，结果:', result);
+            })
+            .catch(error => {
+                console.error('❌ 异步代码执行错误:', error);
+            });
+        
+        return { status: 'executing', message: '代码已开始异步执行' };
+    }
+};
+
 // 创建系统托盘图标
 function createTrayIcon() {
     // 创建托盘图标 (使用系统默认图标或自定义图标)
