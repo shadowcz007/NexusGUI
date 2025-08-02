@@ -4,11 +4,20 @@ const { z } = require('zod');
 const fs = require('fs');
 const path = require('path');
 
+// 导入重构后的工具系统
+const ToolRegistry = require('./tools/ToolRegistry');
+const RenderGUITool = require('./tools/RenderGUITool');
+const InjectJSTool = require('./tools/InjectJSTool');
+const NotificationTool = require('./tools/NotificationTool');
+
 // 读取 package.json 获取项目信息
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../package.json'), 'utf8'));
 
 // Dynamic imports for ES modules
 let Server, SSEServerTransport, CallToolRequestSchema, ErrorCode, ListToolsRequestSchema, McpError;
+
+// 全局工具注册器实例
+let globalToolRegistry = null;
 
 // Initialize modules
 async function initializeModules() {
@@ -30,7 +39,27 @@ async function initializeModules() {
     }
 }
 
-// HTML 渲染模式不需要组件 Schema
+// 初始化工具注册器
+async function initializeToolRegistry() {
+    if (!globalToolRegistry) {
+        console.log('🔧 初始化工具注册器...');
+        
+        globalToolRegistry = new ToolRegistry();
+        
+        // 注册所有工具
+        globalToolRegistry.register(new RenderGUITool());
+        globalToolRegistry.register(new InjectJSTool());
+        // globalToolRegistry.register(new NotificationTool());
+        
+        // 初始化所有工具
+        await globalToolRegistry.initialize();
+        
+        console.log('✅ 工具注册器初始化完成');
+        console.log('📊 工具统计:', globalToolRegistry.getStats());
+    }
+    
+    return globalToolRegistry;
+}
 
 /**
  * 创建 MCP 服务器实例
@@ -48,277 +77,13 @@ const getServer = async() => {
         },
     });
 
-    // 注册工具：render-gui 和 inject-js
+    // 初始化工具注册器
+    const toolRegistry = await initializeToolRegistry();
+
+    // 注册工具列表处理器
     server.setRequestHandler(ListToolsRequestSchema, async() => {
         return {
-            tools: [{
-                    name: 'render-gui',
-                    description: [
-                        `渲染 HTML 界面到桌面窗口。`,
-                        `支持完整的 HTML、CSS 和 JavaScript，可以创建任意复杂的用户界面。`,
-                        `支持丰富的窗口属性设置：菜单栏显示、置顶、任务栏显示、边框、大小调整、透明度、全屏等。`,
-                        `可根据需要控制否是同步等待窗口结果`,
-                        `HTML 内容可以是文件路径或直接的 HTML 字符串，优先使用HTML字符串。`,
-                        `可使用的electronAPI={`,
-                        `"sendResult":function(result){}, //用于同步等待结果`,
-                        `}`
-                    ].join('\n'),
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            title: {
-                                type: 'string',
-                                description: '窗口标题',
-                                default: '动态界面'
-                            },
-                            waitForResult: {
-                                type: 'boolean',
-                                description: '是否同步等待窗口结果。当设置为 true 时，函数将阻塞直到窗口关闭或提交结果。',
-                                default: false
-                            },
-                            width: {
-                                type: 'number',
-                                description: '窗口宽度（像素）',
-                                minimum: 200,
-                                maximum: 2000,
-                                default: 800
-                            },
-                            height: {
-                                type: 'number',
-                                description: '窗口高度（像素）',
-                                minimum: 200,
-                                maximum: 2000,
-                                default: 600
-                            },
-                            // 窗口属性设置
-                            showMenuBar: {
-                                type: 'boolean',
-                                description: '是否显示菜单栏',
-                                default: false
-                            },
-                            alwaysOnTop: {
-                                type: 'boolean',
-                                description: '窗口是否始终置顶',
-                                default: true
-                            },
-                            skipTaskbar: {
-                                type: 'boolean',
-                                description: '是否在任务栏隐藏窗口',
-                                default: false
-                            },
-                            showInTaskbar: {
-                                type: 'boolean',
-                                description: '是否在任务栏显示窗口',
-                                default: true
-                            },
-                            frame: {
-                                type: 'boolean',
-                                description: '是否显示窗口边框',
-                                default: true
-                            },
-                            resizable: {
-                                type: 'boolean',
-                                description: '窗口是否可调整大小',
-                                default: true
-                            },
-                            movable: {
-                                type: 'boolean',
-                                description: '窗口是否可移动',
-                                default: true
-                            },
-                            minimizable: {
-                                type: 'boolean',
-                                description: '窗口是否可最小化',
-                                default: true
-                            },
-                            maximizable: {
-                                type: 'boolean',
-                                description: '窗口是否可最大化',
-                                default: true
-                            },
-                            closable: {
-                                type: 'boolean',
-                                description: '窗口是否可关闭',
-                                default: true
-                            },
-                            minWidth: {
-                                type: 'number',
-                                description: '窗口最小宽度（像素）',
-                                minimum: 200,
-                                default: 400
-                            },
-                            minHeight: {
-                                type: 'number',
-                                description: '窗口最小高度（像素）',
-                                minimum: 200,
-                                default: 300
-                            },
-                            maxWidth: {
-                                type: 'number',
-                                description: '窗口最大宽度（像素）',
-                                minimum: 400
-                            },
-                            maxHeight: {
-                                type: 'number',
-                                description: '窗口最大高度（像素）',
-                                minimum: 300
-                            },
-                            opacity: {
-                                type: 'number',
-                                description: '窗口透明度（0.0-1.0）',
-                                minimum: 0.0,
-                                maximum: 1.0
-                            },
-                            fullscreen: {
-                                type: 'boolean',
-                                description: '是否全屏显示',
-                                default: false
-                            },
-                            zoomFactor: {
-                                type: 'number',
-                                description: '窗口缩放因子',
-                                minimum: 0.25,
-                                maximum: 5.0,
-                                default: 1.0
-                            },
-                            html: {
-                                type: 'string',
-                                description: 'HTML 内容输入，支持文件路径或 HTML 字符串。优先级：1. HTML 文件路径（如 ./index.html）2. HTML 字符串（如 <div>内容</div>）',
-                                examples: {
-                                    'HTML 文件路径': './templates/form.html',
-                                    '相对路径': '../ui/dashboard.html',
-                                    '绝对路径': '/Users/user/project/page.html',
-                                    '简单 HTML 字符串': '<h1>Hello World</h1><p>这是一个简单的 HTML 界面</p>',
-                                    '带样式的 HTML 字符串': '<div style="padding: 20px; background: #f0f0f0;"><h2>带样式的标题</h2><button onclick="alert(\'点击了按钮\')">点击我</button></div>',
-                                    '复杂 HTML 字符串': '<div class="container"><form><label>姓名: <input type="text" name="name"></label><button type="submit">提交</button></form></div>'
-                                }
-                            },
-                            data: {
-                                type: 'object',
-                                description: '界面初始数据，用于预填充表单字段和组件状态。键名应与组件的 name 属性对应',
-                                additionalProperties: true,
-                                examples: {
-                                    'userName': '张三',
-                                    'userAge': 25,
-                                    'isActive': true,
-                                    'selectedOption': 'option1'
-                                },
-                                default: {}
-                            },
-                            callbacks: {
-                                type: 'object',
-                                description: '事件回调函数映射，键为回调函数名称，值为 JavaScript 代码字符串。回调函数接收参数：data(全局数据)、sendResult(发送结果函数)、getFormData(获取表单数据函数)',
-                                additionalProperties: {
-                                    type: 'string',
-                                    description: 'JavaScript 代码字符串，可以访问 data、sendResult、getFormData 参数'
-                                },
-                                examples: {
-                                    'handleSubmit': 'sendResult({ action: "submit", formData: getFormData() });',
-                                    'handleCancel': 'sendResult({ action: "cancel" });',
-                                    'processData': 'const result = data.userInput * 2; sendResult({ processed: result });'
-                                },
-                                default: {}
-                            },
-        reuseWindow: {
-          "type": "boolean",
-          "description": "是否复用现有窗口而不是创建新窗口。当设置为 true 时，如果存在可用窗口，将更新现有窗口的内容和属性，而不是销毁并重新创建窗口。",
-          "default": false
-        },
-        waitForResult: {
-          "type": "boolean",
-          "description": "是否同步等待窗口结果。当设置为 true 时，函数将阻塞直到窗口关闭或提交结果。",
-          "default": false
-        }
-                        },
-                        required: ['html'],
-                        examples: [{
-                                title: 'HTML 文件路径渲染',
-                                description: '使用 HTML 文件路径渲染界面',
-                                value: {
-                                    title: 'HTML 文件界面',
-                                    width: 800,
-                                    height: 600,
-                                    html: './templates/dashboard.html'
-                                }
-                            },
-                            {
-                                title: 'HTML 字符串渲染',
-                                description: '使用 HTML 字符串直接渲染界面',
-                                value: {
-                                    title: 'HTML 字符串界面',
-                                    width: 600,
-                                    height: 400,
-                                    html: '<div style="padding: 20px; font-family: Arial, sans-serif;"><h1 style="color: #333; text-align: center;">HTML 字符串渲染</h1><div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;"><h2>功能特点</h2><ul><li>支持完整的 HTML 语法</li><li>可以使用内联样式</li><li>支持 JavaScript 事件</li><li>完全自定义的界面布局</li></ul></div><button onclick="alert(\'HTML 按钮被点击了！\')" style="background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">点击我</button></div>'
-                                }
-                            }
-                        ]
-                    }
-                },
-                {
-                    name: 'inject-js',
-                    description: [
-                        `向当前活动窗口注入 JavaScript 代码。`,
-                        `可用于动态更新窗口内容、修改样式、添加事件监听器等。`,
-                        `支持同步或异步执行代码，并可返回执行结果。`,
-                        `可以传递参数给注入的代码，以实现更灵活的操作。`,
-                        `注入的代码在窗口的上下文中执行，可以访问窗口的所有 DOM 元素和 JavaScript API。`,
-                        `可使用的electronAPI={`,
-                        `"sendResult":function(result){}, //用于同步等待结果`,
-                        `}`
-                    ].join('\n'),
-                    inputSchema: {
-                        type: 'object',
-                        properties: {
-                            code: {
-                                type: 'string',
-                                description: '要注入的 JavaScript 代码。可以是函数定义、表达式或语句。'
-                            },
-                            waitForResult: {
-                                type: 'boolean',
-                                description: '是否等待代码执行结果。如果为 true，将阻塞直到代码执行完成并返回结果。',
-                                default: false
-                            },
-                            params: {
-                                type: 'object',
-                                description: '传递给注入代码的参数对象。可在注入代码中通过 injectedParams 变量访问。',
-                                additionalProperties: true,
-                                default: {}
-                            }
-                        },
-                        required: ['code'],
-                        examples: [{
-                                title: '更新页面标题',
-                                description: '修改当前窗口的页面标题',
-                                value: {
-                                    code: 'document.title = "新标题"; return "标题已更新";',
-                                    waitForResult: true
-                                }
-                            },
-                            {
-                                title: '获取表单数据',
-                                description: '获取页面中表单的所有字段值',
-                                value: {
-                                    code: 'return Array.from(document.querySelectorAll("form input, form select, form textarea")).reduce((data, input) => { data[input.name] = input.value; return data; }, {});',
-                                    waitForResult: true
-                                }
-                            },
-                            {
-                                title: '使用参数更新内容',
-                                description: '使用传入的参数更新页面内容',
-                                value: {
-                                    code: 'const el = document.getElementById(injectedParams.elementId); if(el) { el.innerHTML = injectedParams.content; return true; } return false;',
-                                    waitForResult: true,
-                                    params: {
-                                        elementId: "status",
-                                        content: "<strong>更新成功!</strong>"
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-                 
-            ]
+            tools: toolRegistry.getToolSchemas()
         };
     });
 
@@ -327,22 +92,16 @@ const getServer = async() => {
         const { name, arguments: args } = request.params;
 
         try {
-            switch (name) {
-                case 'render-gui':
-                    return await handleRenderDynamicGUI(args);
-
-                case 'inject-js':
-                    return await handleInjectJs(args);
-
-                case 'start-notification-stream':
-                    return await handleStartNotificationStream(args, server);
-
-                default:
-                    throw new McpError(
-                        ErrorCode.MethodNotFound,
-                        `未知工具: ${name}`
-                    );
+            // 对于通知工具，需要传递服务器实例
+            if (name === 'start-notification-stream') {
+                const notificationTool = toolRegistry.getTool(name);
+                if (notificationTool) {
+                    return await notificationTool.execute(args, server);
+                }
             }
+            
+            // 使用工具注册器执行工具
+            return await toolRegistry.executeTool(name, args);
         } catch (error) {
             console.error(`工具 ${name} 执行失败:`, error);
             throw new McpError(
@@ -355,332 +114,6 @@ const getServer = async() => {
     return server;
 };
 
-// HTML 输入处理函数
-function processHtmlInput(htmlInput) {
-    if (!htmlInput || typeof htmlInput !== 'string') {
-        throw new Error('HTML 输入不能为空且必须是字符串');
-    }
-
-    // 1. 优先判断是否是 HTML 文件地址
-    if (isHtmlFilePath(htmlInput)) {
-        console.log(`📁 检测到 HTML 文件路径: ${htmlInput}`);
-        try {
-            const resolvedPath = path.resolve(htmlInput);
-            const htmlContent = fs.readFileSync(resolvedPath, 'utf8');
-            console.log(`✅ 成功读取 HTML 文件，内容长度: ${htmlContent.length}`);
-            return {
-                type: 'file',
-                path: htmlInput,
-                content: htmlContent
-            };
-        } catch (error) {
-            throw new Error(`读取 HTML 文件失败: ${error.message}`);
-        }
-    }
-    
-    // 2. 其次判断是否是 HTML 字符串
-    if (isHtmlString(htmlInput)) {
-        console.log(`📝 检测到 HTML 字符串，长度: ${htmlInput.length}`);
-        return {
-            type: 'string',
-            content: htmlInput
-        };
-    }
-    
-    throw new Error('无效的 HTML 输入，必须是 HTML 文件路径或 HTML 字符串');
-}
-
-function isHtmlFilePath(input) {
-    // 检查是否是文件路径格式
-    return typeof input === 'string' && 
-           (input.endsWith('.html') || 
-            input.endsWith('.htm') ||
-            input.includes('/') || 
-            input.includes('\\')) &&
-           !input.includes('<') && 
-           !input.includes('>');
-}
-
-function isHtmlString(input) {
-    // 检查是否包含 HTML 标签
-    return typeof input === 'string' && 
-           input.includes('<') && 
-           input.includes('>');
-}
-
-// 处理 JavaScript 代码注入
-async function handleInjectJs(args) {
-    const {
-        code = '',
-        waitForResult = false,
-        params = {}
-    } = args;
-
-    console.log(`💉 注入 JavaScript 代码到当前窗口${waitForResult ? ' (同步等待结果)' : ''}`);
-
-    if (!code || typeof code !== 'string') {
-        throw new Error('代码不能为空且必须是字符串');
-    }
-
-    // 验证代码长度
-    if (code.length > 1000000) {
-        throw new Error(`代码长度超出限制 (${code.length} > 1000000)`);
-    }
-
-    // 检查主进程支持
-    if (!global.injectJsToWindow) {
-        console.warn('⚠️ 主进程中未找到 injectJsToWindow 函数');
-        
-        // 返回详细的设置指导
-        return {
-            content: [{
-                type: 'text',
-                text: `❌ 代码注入功能未启用\n\n📋 需要在 Electron 主进程中添加以下代码：\n\n\`\`\`javascript\nconst { BrowserWindow } = require('electron');\n\n// 全局函数：向当前活动窗口注入 JavaScript 代码\nglobal.injectJsToWindow = async (config) => {\n    const { code, waitForResult, params } = config;\n    \n    // 获取当前焦点窗口\n    let targetWindow = BrowserWindow.getFocusedWindow();\n    \n    // 如果没有焦点窗口，尝试获取所有窗口中的第一个\n    if (!targetWindow) {\n        const allWindows = BrowserWindow.getAllWindows();\n        if (allWindows.length > 0) {\n            targetWindow = allWindows[0];\n        }\n    }\n    \n    if (!targetWindow) {\n        throw new Error('找不到可用的窗口');\n    }\n    \n    // 准备要执行的代码\n    const wrappedCode = \`\n        (function() {\n            try {\n                const injectedParams = \${JSON.stringify(params)};\n                const result = (function() {\n                    \${code}\n                })();\n                return result;\n            } catch (error) {\n                return { error: error.message };\n            }\n        })();\n    \`;\n    \n    // 执行代码\n    if (waitForResult) {\n        const result = await targetWindow.webContents.executeJavaScript(wrappedCode);\n        return result;\n    } else {\n        targetWindow.webContents.executeJavaScript(wrappedCode)\n            .catch(error => console.error('异步代码执行错误:', error));\n        return { status: 'executing' };\n    }\n};\n\`\`\`\n\n📝 代码预览：\n${code.substring(0, 200)}${code.length > 200 ? '...' : ''}\n\n🔧 请将上述代码添加到你的 Electron 主进程文件中，然后重新启动应用。`
-            }]
-        };
-    }
-
-    try {
-        console.log('💉 MCP 调用代码注入:', { codeLength: code.length, waitForResult });
-
-        // 创建注入配置
-        const injectConfig = {
-            code,
-            waitForResult,
-            params
-        };
-
-        // 根据 waitForResult 参数决定是否等待结果
-        if (waitForResult) {
-            // 同步等待执行结果
-            const result = await global.injectJsToWindow(injectConfig);
-            
-            console.log('✅ MCP 代码注入完成，结果:', result);
-
-            // 返回执行结果
-            return {
-                content: [{
-                    type: 'text',
-                    text: `✅ JavaScript 代码已成功注入到当前窗口\n📊 执行结果: ${JSON.stringify(result)}`
-                }],
-                result: result // 将执行结果包含在返回值中
-            };
-        } else {
-            // 异步注入代码（不等待结果）
-            await global.injectJsToWindow(injectConfig);
-            
-            console.log('✅ MCP 代码注入成功');
-
-            return {
-                content: [{
-                    type: 'text',
-                    text: `✅ JavaScript 代码已成功注入到当前窗口\n📝 代码长度: ${code.length} 字符\n⏱️ 异步执行中，未等待结果`
-                }]
-            };
-        }
-    } catch (error) {
-        console.error('❌ MCP 代码注入失败:', error);
-        throw new Error(`代码注入失败: ${error.message}`);
-    }
-}
-
-// 处理动态 GUI 渲染
-async function handleRenderDynamicGUI(args) {
-    const {
-        title = '动态界面',
-            width = 800,
-            height = 600,
-            // 窗口属性设置
-            showMenuBar = false,
-            alwaysOnTop = true,
-            skipTaskbar = false,
-            showInTaskbar = true,
-            frame = true,
-            resizable = true,
-            movable = true,
-            minimizable = true,
-            maximizable = true,
-            closable = true,
-            minWidth = 400,
-            minHeight = 300,
-            maxWidth,
-            maxHeight,
-            opacity,
-            fullscreen = false,
-            zoomFactor = 1.0,
-            html = null,
-            data = {},
-            callbacks = {},
-            reuseWindow = false,
-            waitForResult = false // 新增参数：是否等待结果
-    } = args;
-
-    console.log(`🎨 渲染动态 GUI: ${title}${waitForResult ? ' (同步等待结果)' : ''}`);
-
-    // 处理 HTML 输入（按优先级）
-    let processedHtml = null;
-    let inputType = 'none';
-    
-    if (html) {
-        try {
-            const result = processHtmlInput(html);
-            processedHtml = result.content;
-            inputType = result.type;
-            
-            if (result.type === 'file') {
-                console.log(`📁 使用 HTML 文件: ${result.path}`);
-            } else {
-                console.log(`📝 使用 HTML 字符串，长度: ${processedHtml.length}`);
-            }
-        } catch (error) {
-            throw new Error(`HTML 输入处理失败: ${error.message}`);
-        }
-    } else {
-        throw new Error('缺少 html 参数，请提供 HTML 文件路径或 HTML 字符串');
-    }
-
-    // 验证窗口尺寸
-    if (width < 200 || width > 2000) {
-        throw new Error(`窗口宽度 ${width} 超出有效范围 (200-2000)`);
-    }
-    if (height < 200 || height > 2000) {
-        throw new Error(`窗口高度 ${height} 超出有效范围 (200-2000)`);
-    }
-
-    // 验证回调函数
-    if (callbacks && typeof callbacks === 'object') {
-        Object.entries(callbacks).forEach(([name, code]) => {
-            if (typeof code !== 'string') {
-                throw new Error(`回调函数 "${name}" 必须是字符串类型`);
-            }
-            if (code.trim().length === 0) {
-                throw new Error(`回调函数 "${name}" 不能为空`);
-            }
-        });
-    }
-
-    // 统一调用主进程创建窗口
-    if (!global.createWindow) {
-        // 如果在非 Electron 环境中运行，则抛出错误
-        throw new Error('当前环境不支持窗口创建，请在 Electron 主进程中运行。');
-    }
-
-    try {
-        console.log('🌐 MCP 调用窗口创建:', { title, width, height, inputType, waitForResult });
-
-        // 创建窗口配置
-        const windowConfig = {
-            type: 'dynamic',
-            title,
-            width,
-            height,
-            // 窗口属性设置
-            showMenuBar,
-            alwaysOnTop,
-            skipTaskbar,
-            showInTaskbar,
-            frame,
-            resizable,
-            movable,
-            minimizable,
-            maximizable,
-            closable,
-            minWidth,
-            minHeight,
-            maxWidth,
-            maxHeight,
-            opacity,
-            fullscreen,
-            zoomFactor,
-            html: processedHtml,
-            data,
-            callbacks,
-            reuseWindow,
-            waitForResult // 传递等待结果参数
-        };
-
-        // 根据 waitForResult 参数决定是否等待结果
-        if (waitForResult) {
-            // 同步等待窗口结果
-            const result = await global.createWindow(windowConfig);
-            
-            console.log('✅ MCP 窗口操作完成，结果:', result);
-
-            // 返回窗口操作结果
-            return {
-                content: [{
-                    type: 'text',
-                    text: `✅ 动态界面 "${title}" 操作已完成\n📱 窗口尺寸: ${width}x${height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}`
-                }],
-                result: result // 将窗口操作结果包含在返回值中
-            };
-        } else {
-            // 异步创建窗口（原有行为）
-            await global.createWindow(windowConfig);
-            
-            console.log('✅ MCP 窗口创建成功');
-
-            // 构建窗口属性信息
-            const windowProps = [];
-            if (showMenuBar) windowProps.push('显示菜单栏');
-            if (alwaysOnTop) windowProps.push('始终置顶');
-            if (skipTaskbar) windowProps.push('隐藏任务栏');
-            if (!frame) windowProps.push('无边框');
-            if (!resizable) windowProps.push('固定大小');
-            if (fullscreen) windowProps.push('全屏');
-            if (opacity !== undefined) windowProps.push(`透明度: ${opacity}`);
-            if (zoomFactor !== 1.0) windowProps.push(`缩放: ${zoomFactor}`);
-
-            const windowInfo = windowProps.length > 0 ? `\n🔧 窗口属性: ${windowProps.join(', ')}` : '';
-            const reuseInfo = reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
-            const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
-
-            return {
-                content: [{
-                    type: 'text',
-                    text: `✅ 动态界面 "${title}" 已成功${reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${width}x${height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowInfo}${reuseInfo}`
-                }]
-            };
-        }
-    } catch (error) {
-        console.error('❌ MCP 窗口创建失败:', error);
-        throw new Error(`窗口创建失败: ${error.message}`);
-    }
-}
-
-
-
-// 处理通知流
-async function handleStartNotificationStream(args, server) {
-    const { interval = 1000, count = 10 } = args;
-    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-    let counter = 0;
-
-    // 发送定期通知
-    while (counter < count) {
-        counter++;
-        await sleep(interval);
-
-        try {
-            await server.notification({
-                method: "notifications/message",
-                params: {
-                    level: "info",
-                    data: `通知 #${counter} - ${new Date().toISOString()}`
-                }
-            });
-        } catch (error) {
-            console.error("发送通知时出错:", error);
-        }
-    }
-
-    return {
-        content: [{
-            type: 'text',
-            text: `✅ 已完成发送 ${count} 条通知，间隔 ${interval}ms`,
-        }]
-    };
-}
 
 // Express 应用
 const app = express();
@@ -1365,6 +798,16 @@ function createServer(port = 3001) {
         close: async() => {
             console.log('正在关闭 SSE 服务器...');
 
+            // 清理工具注册器
+            if (globalToolRegistry) {
+                try {
+                    await globalToolRegistry.cleanup();
+                    globalToolRegistry = null;
+                } catch (error) {
+                    console.error('清理工具注册器时出错:', error);
+                }
+            }
+
             // 关闭所有活动传输层以正确清理资源
             for (const sessionId in transports) {
                 try {
@@ -1385,23 +828,19 @@ function createServer(port = 3001) {
 
 // 如果直接运行此文件，则启动独立服务器
 if (require.main === module) {
-    const { server } = createServer(process.env.PORT || 3001);
+    const { server, close } = createServer(process.env.PORT || 3001);
 
     // 处理服务器关闭
     process.on('SIGINT', async() => {
         console.log('正在关闭服务器...');
-        server.close(() => {
-            console.log('服务器关闭完成');
-            process.exit(0);
-        });
+        await close();
+        process.exit(0);
     });
 
     process.on('SIGTERM', async() => {
         console.log('正在关闭服务器...');
-        server.close(() => {
-            console.log('服务器关闭完成');
-            process.exit(0);
-        });
+        await close();
+        process.exit(0);
     });
 }
 
