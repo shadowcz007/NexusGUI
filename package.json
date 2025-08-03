@@ -41,8 +41,7 @@
             "output": "dist"
         },
         "files": [
-            "src/main/main.js",
-            "src/main/preload.js",
+            "src/main/**/*",
             "src/config/settings.js",
             "src/renderer/renderer.js",
             "src/renderer/index.html",
