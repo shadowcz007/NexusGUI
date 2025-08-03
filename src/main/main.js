@@ -6,7 +6,10 @@ const { serviceManager } = require('./managers/ServiceManager');
 
 // 暴露给全局，供 MCP 服务器调用（保持向后兼容）
 global.createWindow = async (config = {}) => {
-    console.log('🌐 通过 MCP 调用创建窗口');
+    const logger = serviceManager.getService('logger').createModuleLogger('GLOBAL');
+    const errorHandler = serviceManager.getService('errorHandler');
+    
+    logger.info('通过 MCP 调用创建窗口', { config });
     
     try {
         // 确保服务管理器已初始化
@@ -17,7 +20,11 @@ global.createWindow = async (config = {}) => {
         const windowService = serviceManager.getService('window');
         return await windowService.createWindow(config);
     } catch (error) {
-        console.error('❌ 全局创建窗口失败:', error);
+        await errorHandler.handleError(error, {
+            module: 'GLOBAL',
+            operation: 'createWindow',
+            config
+        });
         throw error;
     }
 };
@@ -36,7 +43,12 @@ async function getRenderGUITool() {
             return renderGUITool;
         }
     } catch (error) {
-        console.error('❌ 获取 RenderGUITool 失败:', error);
+        const logger = serviceManager.getService('logger').createModuleLogger('GLOBAL');
+        const errorHandler = serviceManager.getService('errorHandler');
+        await errorHandler.handleError(error, {
+            module: 'GLOBAL',
+            operation: 'getRenderGUITool'
+        });
     }
     return null;
 }
@@ -158,11 +170,17 @@ global.injectJsToWindow = async (config) => {
 
 // 应用启动
 app.whenReady().then(async () => {
+    let logger, errorHandler;
+    
     try {
-        console.log('🚀 应用启动中...');
-        
         // 启动所有服务
         await serviceManager.startAll();
+        
+        // 获取日志和错误处理服务
+        logger = serviceManager.getService('logger').createModuleLogger('MAIN');
+        errorHandler = serviceManager.getService('errorHandler');
+        
+        logger.info('应用启动中...');
         
         // 可选：显示主窗口
         if (process.argv.includes('--show-main-window')) {
@@ -170,17 +188,24 @@ app.whenReady().then(async () => {
             await windowService.showMCPConsole();
         }
 
-        console.log('✅ 应用启动完成');
+        logger.info('应用启动完成');
 
     } catch (error) {
-        console.error('❌ 应用启动失败:', error);
+        if (errorHandler) {
+            await errorHandler.handleError(error, {
+                module: 'MAIN',
+                operation: 'appReady'
+            });
+        } else {
+            console.error('❌ 应用启动失败:', error);
+        }
         app.quit();
     }
 
     // macOS 激活事件
     app.on('activate', async () => {
         if (process.platform === 'darwin') {
-            console.log('🍎 macOS 应用激活事件触发');
+            logger.info('macOS 应用激活事件触发');
             await showAppWindow();
         }
     });
@@ -190,12 +215,22 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
     try {
         const trayService = serviceManager.getService('tray');
+        const logger = serviceManager.getService('logger').createModuleLogger('MAIN');
+        
         if (trayService.exists()) {
-            console.log('✅ 所有窗口已关闭，应用继续在托盘中运行');
+            logger.info('所有窗口已关闭，应用继续在托盘中运行');
             return;
         }
     } catch (error) {
-        console.error('❌ 检查托盘状态失败:', error);
+        const errorHandler = serviceManager.getService('errorHandler');
+        if (errorHandler) {
+            errorHandler.handleError(error, {
+                module: 'MAIN',
+                operation: 'windowAllClosed'
+            });
+        } else {
+            console.error('❌ 检查托盘状态失败:', error);
+        }
     }
 
     if (process.platform !== 'darwin') {
@@ -206,11 +241,22 @@ app.on('window-all-closed', () => {
 // 应用退出前清理
 app.on('before-quit', async () => {
     try {
-        console.log('🧹 应用正在退出，清理资源...');
+        const logger = serviceManager.getService('logger').createModuleLogger('MAIN');
+        const errorHandler = serviceManager.getService('errorHandler');
+        
+        logger.info('应用正在退出，清理资源...');
         await serviceManager.stopAll();
-        console.log('✅ 应用正在退出，资源已清理');
+        logger.info('应用正在退出，资源已清理');
     } catch (error) {
-        console.error('❌ 清理资源时出错:', error);
+        const errorHandler = serviceManager.getService('errorHandler');
+        if (errorHandler) {
+            await errorHandler.handleError(error, {
+                module: 'MAIN',
+                operation: 'beforeQuit'
+            });
+        } else {
+            console.error('❌ 清理资源时出错:', error);
+        }
     }
 });
 
@@ -429,4 +475,5 @@ ipcMain.handle('get-form-data', async (event, formSelector) => {
     }
 })();
 
-console.log('🚀 NexusGUI 主进程已启动');
+// 初始化日志将在 ServiceManager 中处理
+// console.log('🚀 NexusGUI 主进程已启动');

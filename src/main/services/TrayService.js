@@ -6,25 +6,27 @@ const path = require('path');
  * 负责管理系统托盘图标和菜单
  */
 class TrayService {
-    constructor(appStateService, windowService) {
+    constructor(appStateService, windowService, loggerService, errorHandlerService) {
         this.tray = null;
         this.appStateService = appStateService;
         this.windowService = windowService;
+        this.logger = loggerService.createModuleLogger('TRAY');
+        this.errorHandler = errorHandlerService;
         
         // 监听服务器状态变化，自动更新托盘菜单
         this.appStateService.addListener('mcpServerInfo', () => {
             this.updateMenu();
         });
 
-        console.log('✅ 托盘服务已初始化');
+        this.logger.info('托盘服务已初始化');
     }
 
     /**
      * 创建托盘
      */
-    create() {
+    async createTray() {
         if (this.tray) {
-            console.log('⚠️ 托盘已存在，跳过创建');
+            this.logger.warn('托盘已存在，跳过创建');
             return;
         }
 
@@ -36,9 +38,12 @@ class TrayService {
             this.setupEventListeners();
             this.updateMenu();
             
-            console.log('✅ 系统托盘已创建');
+            this.logger.info('系统托盘已创建');
         } catch (error) {
-            console.error('❌ 创建托盘失败:', error);
+            await this.errorHandler.handleError(error, {
+                module: 'TRAY',
+                operation: 'createTray'
+            });
             throw error;
         }
     }
@@ -56,7 +61,7 @@ class TrayService {
                 return trayIcon;
             }
         } catch (error) {
-            console.log('使用系统默认托盘图标');
+            this.logger.debug('使用系统默认托盘图标');
         }
 
         // 使用系统默认图标
@@ -73,15 +78,18 @@ class TrayService {
     setupEventListeners() {
         // 双击托盘图标显示缓存的 GUI（如果有的话）
         this.tray.on('double-click', async () => {
-            console.log('🖱️ 托盘图标双击');
+            this.logger.debug('托盘图标双击');
             try {
                 if (global.showAppWindow) {
                     await global.showAppWindow();
                 } else {
-                    console.log('ℹ️ showAppWindow 函数不可用');
+                    this.logger.info('showAppWindow 函数不可用');
                 }
             } catch (error) {
-                console.error('❌ 双击托盘图标显示窗口失败:', error);
+                await this.errorHandler.handleError(error, {
+                    module: 'TRAY',
+                    operation: 'doubleClick'
+                });
             }
         });
 
@@ -186,7 +194,7 @@ class TrayService {
      * 刷新状态
      */
     refreshStatus() {
-        console.log('🔄 刷新服务器状态...');
+        this.logger.info('刷新服务器状态...');
         this.updateMenu();
         
         // 刷新相关窗口
@@ -194,7 +202,7 @@ class TrayService {
             this.windowService.refreshMCPConsoleWindows();
         }
         
-        console.log('✅ 服务器状态已刷新');
+        this.logger.info('服务器状态已刷新');
     }
 
     /**
@@ -214,7 +222,7 @@ class TrayService {
         if (this.tray) {
             this.tray.destroy();
             this.tray = null;
-            console.log('✅ 托盘已销毁');
+            this.logger.info('托盘已销毁');
         }
     }
 

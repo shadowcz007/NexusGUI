@@ -1,7 +1,9 @@
 const { AppStateService } = require('../services/AppStateService');
-const { TrayService } = require('../services/TrayService');
 const { ServerService } = require('../services/ServerService');
+const { TrayService } = require('../services/TrayService');
 const { WindowService } = require('../services/WindowService');
+const { LoggerService } = require('../services/LoggerService');
+const { ErrorHandlerService } = require('../services/ErrorHandlerService');
 
 /**
  * 服务管理器
@@ -10,9 +12,19 @@ const { WindowService } = require('../services/WindowService');
 class ServiceManager {
     constructor() {
         this.services = new Map();
-        this.isInitialized = false;
-        this.isStarted = false;
-        console.log('✅ 服务管理器已创建');
+        this.initialized = false;
+        this.starting = false;
+        
+        // 首先初始化日志服务
+        this.logger = new LoggerService({
+            level: process.argv.includes('--debug') ? 'DEBUG' : 'INFO',
+            enableFileLogging: true
+        });
+        
+        // 初始化错误处理服务
+        this.errorHandler = new ErrorHandlerService(this.logger);
+        
+        this.logger.info('服务管理器已创建', {}, 'SERVICE_MANAGER');
     }
 
     /**
@@ -20,36 +32,42 @@ class ServiceManager {
      * @returns {Promise<void>}
      */
     async initialize() {
-        if (this.isInitialized) {
-            console.log('⚠️ 服务管理器已初始化');
+        if (this.initialized) {
+            this.logger.warn('服务管理器已初始化，跳过重复初始化', {}, 'SERVICE_MANAGER');
             return;
         }
 
-        try {
-            console.log('🔧 初始化服务管理器...');
+        this.logger.info('正在初始化服务管理器...', {}, 'SERVICE_MANAGER');
 
-            // 按依赖顺序初始化服务
-            // 1. 应用状态服务（基础服务，无依赖）
-            const appStateService = new AppStateService();
+        try {
+            // 注册日志和错误处理服务
+            this.services.set('logger', this.logger);
+            this.services.set('errorHandler', this.errorHandler);
+
+            // 创建应用状态服务
+            const appStateService = new AppStateService(this.logger, this.errorHandler);
             this.services.set('appState', appStateService);
 
-            // 2. 服务器服务（依赖应用状态服务）
-            const serverService = new ServerService(appStateService);
+            // 创建服务器服务
+            const serverService = new ServerService(appStateService, this.logger, this.errorHandler);
             this.services.set('server', serverService);
 
-            // 3. 窗口服务（依赖应用状态服务和服务器服务）
-            const windowService = new WindowService(appStateService, serverService);
+            // 创建窗口服务
+            const windowService = new WindowService(appStateService, serverService, this.logger, this.errorHandler);
             this.services.set('window', windowService);
 
-            // 4. 托盘服务（依赖应用状态服务和窗口服务）
-            const trayService = new TrayService(appStateService, windowService);
+            // 创建托盘服务
+            const trayService = new TrayService(appStateService, windowService, this.logger, this.errorHandler);
             this.services.set('tray', trayService);
 
-            this.isInitialized = true;
-            console.log('✅ 服务管理器初始化完成');
+            this.initialized = true;
+            this.logger.info('服务管理器初始化完成', {}, 'SERVICE_MANAGER');
 
         } catch (error) {
-            console.error('❌ 服务管理器初始化失败:', error);
+            await this.errorHandler.handleError(error, { 
+                module: 'SERVICE_MANAGER', 
+                operation: 'initialize' 
+            });
             throw error;
         }
     }
@@ -62,7 +80,9 @@ class ServiceManager {
     getService(name) {
         const service = this.services.get(name);
         if (!service) {
-            throw new Error(`服务不存在: ${name}`);
+            const error = new Error(`服务不存在: ${name}`);
+            this.logger.error('获取服务失败', { serviceName: name }, 'SERVICE_MANAGER');
+            throw error;
         }
         return service;
     }
@@ -81,37 +101,38 @@ class ServiceManager {
      * @returns {Promise<void>}
      */
     async startAll() {
-        if (!this.isInitialized) {
-            await this.initialize();
-        }
-
-        if (this.isStarted) {
-            console.log('⚠️ 服务已启动');
+        if (this.starting) {
+            this.logger.warn('服务正在启动中，请稍候...', {}, 'SERVICE_MANAGER');
             return;
         }
 
+        this.starting = true;
+        this.logger.info('正在启动所有服务...', {}, 'SERVICE_MANAGER');
+
         try {
-            console.log('🚀 启动所有服务...');
+            // 确保服务管理器已初始化
+            if (!this.initialized) {
+                await this.initialize();
+            }
 
-            // 按启动顺序启动服务
-            // 1. 启动服务器
-            console.log('🔧 启动服务器服务...');
-            await this.getService('server').start();
+            // 启动服务器服务
+            const serverService = this.getService('server');
+            await serverService.start();
 
-            // 2. 创建托盘
-            console.log('🔧 启动托盘服务...');
-            this.getService('tray').create();
+            // 创建托盘
+            const trayService = this.getService('tray');
+            await trayService.createTray();
 
-            // 窗口服务不需要启动，按需创建窗口
-
-            this.isStarted = true;
-            console.log('✅ 所有服务启动完成');
+            this.logger.info('所有服务启动完成', {}, 'SERVICE_MANAGER');
 
         } catch (error) {
-            console.error('❌ 启动服务失败:', error);
-            // 如果启动失败，尝试清理已启动的服务
-            await this.stopAll();
+            await this.errorHandler.handleError(error, { 
+                module: 'SERVICE_MANAGER', 
+                operation: 'startAll' 
+            });
             throw error;
+        } finally {
+            this.starting = false;
         }
     }
 
@@ -120,49 +141,49 @@ class ServiceManager {
      * @returns {Promise<void>}
      */
     async stopAll() {
-        if (!this.isStarted) {
-            console.log('⚠️ 服务未启动或已停止');
-            return;
-        }
-
-        console.log('🛑 停止所有服务...');
-
-        const stopPromises = [];
+        this.logger.info('正在停止所有服务...', {}, 'SERVICE_MANAGER');
 
         try {
             // 按相反顺序停止服务
             // 1. 销毁托盘
             if (this.hasService('tray')) {
-                console.log('🔧 停止托盘服务...');
+                this.logger.debug('停止托盘服务...', {}, 'SERVICE_MANAGER');
                 this.getService('tray').destroy();
             }
 
             // 2. 关闭所有窗口
             if (this.hasService('window')) {
-                console.log('🔧 关闭所有窗口...');
+                this.logger.debug('关闭所有窗口...', {}, 'SERVICE_MANAGER');
                 this.getService('window').closeAll();
             }
 
             // 3. 停止服务器
             if (this.hasService('server')) {
-                console.log('🔧 停止服务器服务...');
-                stopPromises.push(this.getService('server').stop());
+                this.logger.debug('停止服务器服务...', {}, 'SERVICE_MANAGER');
+                await this.getService('server').stop();
             }
 
             // 4. 清理应用状态
             if (this.hasService('appState')) {
-                console.log('🔧 清理应用状态服务...');
+                this.logger.debug('清理应用状态服务...', {}, 'SERVICE_MANAGER');
                 this.getService('appState').cleanup();
             }
 
-            await Promise.all(stopPromises);
-            this.isStarted = false;
-            console.log('✅ 所有服务已停止');
+            // 5. 清理日志和错误处理服务
+            if (this.logger) {
+                this.logger.cleanup();
+            }
+            if (this.errorHandler) {
+                this.errorHandler.cleanup();
+            }
+
+            this.logger.info('所有服务已停止', {}, 'SERVICE_MANAGER');
 
         } catch (error) {
-            console.error('❌ 停止服务时出错:', error);
-            // 即使出错也标记为已停止
-            this.isStarted = false;
+            await this.errorHandler.handleError(error, { 
+                module: 'SERVICE_MANAGER', 
+                operation: 'stopAll' 
+            });
             throw error;
         }
     }
@@ -174,20 +195,29 @@ class ServiceManager {
      * @returns {Promise<void>}
      */
     async restartService(serviceName, ...args) {
-        const service = this.getService(serviceName);
-        
-        console.log(`🔄 重启服务: ${serviceName}`);
+        try {
+            const service = this.getService(serviceName);
+            
+            this.logger.info(`重启服务: ${serviceName}`, { args }, 'SERVICE_MANAGER');
 
-        if (service.restart) {
-            await service.restart(...args);
-        } else if (service.stop && service.start) {
-            await service.stop();
-            await service.start(...args);
-        } else {
-            throw new Error(`服务 ${serviceName} 不支持重启操作`);
+            if (service.restart) {
+                await service.restart(...args);
+            } else if (service.stop && service.start) {
+                await service.stop();
+                await service.start(...args);
+            } else {
+                throw new Error(`服务 ${serviceName} 不支持重启操作`);
+            }
+
+            this.logger.info(`服务 ${serviceName} 重启完成`, {}, 'SERVICE_MANAGER');
+        } catch (error) {
+            await this.errorHandler.handleError(error, { 
+                module: 'SERVICE_MANAGER', 
+                operation: 'restartService',
+                serviceName 
+            });
+            throw error;
         }
-
-        console.log(`✅ 服务 ${serviceName} 重启完成`);
     }
 
     /**
@@ -217,7 +247,7 @@ class ServiceManager {
      * @returns {boolean} 是否已初始化
      */
     isServiceManagerInitialized() {
-        return this.isInitialized;
+        return this.initialized;
     }
 
     /**
@@ -225,7 +255,7 @@ class ServiceManager {
      * @returns {boolean} 是否已启动
      */
     isServiceManagerStarted() {
-        return this.isStarted;
+        return !this.starting;
     }
 
     /**
@@ -249,17 +279,23 @@ class ServiceManager {
      * @returns {Promise<void>}
      */
     async cleanup() {
-        console.log('🧹 清理服务管理器...');
+        this.logger.info('清理服务管理器...', {}, 'SERVICE_MANAGER');
         
-        if (this.isStarted) {
+        try {
             await this.stopAll();
+            
+            this.services.clear();
+            this.initialized = false;
+            this.starting = false;
+
+            this.logger.info('服务管理器已清理', {}, 'SERVICE_MANAGER');
+        } catch (error) {
+            await this.errorHandler.handleError(error, { 
+                module: 'SERVICE_MANAGER', 
+                operation: 'cleanup' 
+            });
+            throw error;
         }
-
-        this.services.clear();
-        this.isInitialized = false;
-        this.isStarted = false;
-
-        console.log('✅ 服务管理器已清理');
     }
 }
 

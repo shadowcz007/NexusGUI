@@ -6,10 +6,12 @@ const { settingsManager } = require('../../config/settings.js');
  * 负责管理 SSE MCP 服务器的启动、停止和状态管理
  */
 class ServerService {
-    constructor(appStateService) {
+    constructor(appStateService, loggerService, errorHandlerService) {
         this.sseServer = null;
         this.appStateService = appStateService;
-        console.log('✅ 服务器服务已初始化');
+        this.logger = loggerService.createModuleLogger('SERVER');
+        this.errorHandler = errorHandlerService;
+        this.logger.info('服务器服务已初始化');
     }
 
     /**
@@ -21,13 +23,13 @@ class ServerService {
         try {
             // 如果服务器已运行，先停止
             if (this.sseServer) {
-                console.log('⚠️ 服务器已运行，先停止现有服务器');
+                this.logger.warn('服务器已运行，先停止现有服务器');
                 await this.stop();
             }
 
             const serverPort = port || settingsManager.getSetting('server.port') || 3000;
             
-            console.log(`🚀 正在启动 SSE MCP 服务器，端口: ${serverPort}`);
+            this.logger.info(`正在启动 SSE MCP 服务器，端口: ${serverPort}`);
 
             // 更新状态为启动中
             this.appStateService.updateServerInfo({
@@ -55,11 +57,15 @@ class ServerService {
                 error: null
             });
 
-            console.log('✅ SSE MCP 服务器启动成功');
+            this.logger.info('SSE MCP 服务器启动成功');
             return true;
 
         } catch (error) {
-            console.error('❌ SSE MCP 服务器启动失败:', error);
+            const handledError = await this.errorHandler.handleError(error, {
+                module: 'SERVER',
+                operation: 'start',
+                port: serverPort
+            });
             
             this.appStateService.updateServerInfo({
                 status: 'failed',
@@ -77,7 +83,7 @@ class ServerService {
     async stop() {
         if (this.sseServerInstance) {
             try {
-                console.log('🛑 正在停止 SSE MCP 服务器...');
+                this.logger.info('正在停止 SSE MCP 服务器...');
                 
                 this.appStateService.updateServerInfo({
                     status: 'stopping'
@@ -92,10 +98,13 @@ class ServerService {
                     error: null
                 });
 
-                console.log('✅ SSE MCP 服务器已停止');
+                this.logger.info('SSE MCP 服务器已停止');
                 return true;
             } catch (error) {
-                console.error('❌ 停止服务器时出错:', error);
+                await this.errorHandler.handleError(error, {
+                    module: 'SERVER',
+                    operation: 'stop'
+                });
                 this.appStateService.updateServerInfo({
                     status: 'failed',
                     error: error.message
@@ -112,10 +121,10 @@ class ServerService {
      * @returns {Promise<boolean>} 重启是否成功
      */
     async restart(newPort = null) {
-        console.log('🔄 重启服务器...');
+        this.logger.info('重启服务器...', { newPort });
         await this.stop();
         await this.start(newPort);
-        console.log('✅ 服务器重启完成');
+        this.logger.info('服务器重启完成');
         return true;
     }
 
@@ -130,7 +139,10 @@ class ServerService {
             }
             return null;
         } catch (error) {
-            console.error('❌ 获取 RenderGUITool 失败:', error);
+            this.errorHandler.handleError(error, {
+                module: 'SERVER',
+                operation: 'getRenderGUITool'
+            });
             return null;
         }
     }
@@ -155,18 +167,21 @@ class ServerService {
      * 清理资源
      */
     cleanup() {
-        console.log('🧹 清理服务器服务...');
+        this.logger.info('清理服务器服务...');
         if (this.sseServerInstance) {
             try {
                 this.sseServerInstance.close();
                 this.sseServerInstance = null;
                 this.sseServer = null;
-                console.log('✅ 服务器已关闭');
+                this.logger.info('服务器已关闭');
             } catch (error) {
-                console.error('❌ 关闭服务器时出错:', error);
+                this.errorHandler.handleError(error, {
+                    module: 'SERVER',
+                    operation: 'cleanup'
+                });
             }
         }
-        console.log('✅ 服务器服务已清理');
+        this.logger.info('服务器服务已清理');
     }
 }
 

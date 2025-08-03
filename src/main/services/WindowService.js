@@ -12,10 +12,12 @@ const { generateSessionManagerHTML,
  * 负责管理所有窗口的创建、显示和生命周期
  */
 class WindowService {
-    constructor(appStateService, serverService) {
+    constructor(appStateService, serverService, loggerService, errorHandlerService) {
         this.appStateService = appStateService;
         this.serverService = serverService;
-        console.log('✅ 窗口服务已初始化');
+        this.logger = loggerService.createModuleLogger('WINDOW');
+        this.errorHandler = errorHandlerService;
+        this.logger.info('窗口服务已初始化');
     }
 
     /**
@@ -30,7 +32,7 @@ class WindowService {
             resolveWindowResult = resolve;
         }) : null;
 
-        console.log('🔍 开始创建窗口...');
+        this.logger.debug('开始创建窗口...', { config });
 
         // 检查是否复用现有窗口
         const reuseWindow = config.reuseWindow || false;
@@ -72,9 +74,9 @@ class WindowService {
 
         // 如果需要等待结果，返回 Promise，否则返回窗口对象
         if (config.waitForResult) {
-            console.log('⏳ 等待窗口结果...');
+            this.logger.debug('等待窗口结果...');
             const result = await windowResultPromise;
-            console.log('✅ 收到窗口结果:', result);
+            this.logger.debug('收到窗口结果', { result });
             return result;
         } else {
             return win;

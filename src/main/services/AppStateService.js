@@ -3,7 +3,10 @@
  * 负责管理应用的全局状态和状态变化监听
  */
 class AppStateService {
-    constructor() {
+    constructor(loggerService, errorHandlerService) {
+        this.logger = loggerService.createModuleLogger('APP_STATE');
+        this.errorHandler = errorHandlerService;
+        
         this.state = {
             mcpServerInfo: {
                 status: 'stopped',
@@ -19,7 +22,7 @@ class AppStateService {
         };
         
         this.listeners = new Map(); // 状态变化监听器
-        console.log('✅ 应用状态服务已初始化');
+        this.logger.info('应用状态服务已初始化');
     }
 
     /**
@@ -32,11 +35,11 @@ class AppStateService {
     }
 
     /**
-     * 更新状态
+     * 设置状态
      * @param {string} key - 状态键名
-     * @param {any} value - 新的状态值
+     * @param {any} value - 状态值
      */
-    updateState(key, value) {
+    setState(key, value) {
         const oldValue = this.state[key];
         this.state[key] = value;
         this.notifyListeners(key, value, oldValue);
@@ -44,12 +47,12 @@ class AppStateService {
 
     /**
      * 更新服务器信息
-     * @param {object} info - 服务器信息对象
+     * @param {object} serverInfo - 服务器信息
      */
-    updateServerInfo(info) {
-        const oldInfo = { ...this.state.mcpServerInfo };
-        this.state.mcpServerInfo = { ...this.state.mcpServerInfo, ...info };
-        this.notifyListeners('mcpServerInfo', this.state.mcpServerInfo, oldInfo);
+    updateServerInfo(serverInfo) {
+        const oldValue = { ...this.state.mcpServerInfo };
+        this.state.mcpServerInfo = { ...this.state.mcpServerInfo, ...serverInfo };
+        this.notifyListeners('mcpServerInfo', this.state.mcpServerInfo, oldValue);
     }
 
     /**
@@ -86,12 +89,16 @@ class AppStateService {
      * @param {any} oldValue - 旧值
      */
     notifyListeners(key, newValue, oldValue) {
-        const callbacks = this.listeners.get(key) || [];
-        callbacks.forEach(callback => {
+        const listeners = this.listeners.get(key) || [];
+        listeners.forEach(listener => {
             try {
-                callback(newValue, oldValue);
+                listener(newValue, oldValue);
             } catch (error) {
-                console.error(`状态监听器执行错误 [${key}]:`, error);
+                this.errorHandler.handleError(error, {
+                    module: 'APP_STATE',
+                    operation: 'notifyListeners',
+                    key
+                });
             }
         });
     }
@@ -103,7 +110,7 @@ class AppStateService {
      */
     addWindow(id, window) {
         this.state.windows.set(id, window);
-        console.log(`📱 窗口已添加到状态管理: ${id}`);
+        this.logger.debug(`窗口已添加到状态管理: ${id}`);
     }
 
     /**
@@ -112,7 +119,7 @@ class AppStateService {
      */
     removeWindow(id) {
         if (this.state.windows.delete(id)) {
-            console.log(`📱 窗口已从状态管理中移除: ${id}`);
+            this.logger.debug(`窗口已从状态管理中移除: ${id}`);
         }
     }
 
@@ -137,11 +144,11 @@ class AppStateService {
      * 清理状态
      */
     cleanup() {
-        console.log('🧹 清理应用状态服务...');
+        this.logger.info('清理应用状态服务...');
         this.state.isShuttingDown = true;
-        this.listeners.clear();
         this.state.windows.clear();
-        console.log('✅ 应用状态服务已清理');
+        this.listeners.clear();
+        this.logger.info('应用状态服务已清理');
     }
 }
 
