@@ -55,6 +55,13 @@ npm run start-with-window
 - ✅ 支持 JavaScript 事件处理和交互
 - ✅ 内置 `electronAPI.sendResult()` 函数用于同步等待结果
 
+### HTML 转 Markdown 文档缓存 🆕
+- ✅ 自动将 HTML 内容转换为高质量的 Markdown 格式
+- ✅ 智能保存 Markdown 文件到系统临时目录
+- ✅ 支持获取 Markdown 文件路径和直接读取内容
+- ✅ 提供灵活的缓存获取方式（HTML、Markdown 或两者兼有）
+- ✅ 实现完整的文档缓存和读取功能，便于 AI 处理和版本管理
+
 ### 窗口复用功能 🆕
 - ✅ 支持复用现有窗口而不是销毁重建
 - ✅ 通过 `reuseWindow` 参数控制窗口复用行为
@@ -270,6 +277,95 @@ npm run build
   `
 }
 ```
+
+## HTML 转 Markdown 功能使用
+
+### 自动转换和缓存
+
+当使用 `render-gui` 工具渲染 HTML 界面时，系统会自动：
+1. 将 HTML 内容转换为高质量的 Markdown 格式
+2. 保存 Markdown 文件到系统临时目录
+3. 在全局缓存中记录 Markdown 文件信息
+
+### 获取 Markdown 文件路径
+
+```javascript
+// 使用 get-gui 工具，只获取 Markdown 文件路径（快速）
+{
+  "markdownOnly": true
+}
+
+// 返回结果：
+// ✅ Markdown文件路径
+// 📁 文件路径: /tmp/nexusgui-cache/界面标题-2025-08-03T14-51-39-788Z.md
+// 📁 最新文件: /tmp/nexusgui-cache/界面标题-latest.md
+// 📄 文件大小: 1232 字节
+// ⏰ 创建时间: 2025/8/3 14:51:39
+```
+
+### 读取 Markdown 内容
+
+```javascript
+// 读取并返回 Markdown 文件内容
+{
+  "returnType": "markdown",
+  "readMarkdown": true
+}
+
+// 返回完整的 Markdown 文本内容
+```
+
+### 同时获取 HTML 和 Markdown
+
+```javascript
+// 同时返回 HTML 和 Markdown 内容
+{
+  "returnType": "both",
+  "showHtml": true,
+  "readMarkdown": true
+}
+```
+
+### 获取缓存摘要信息
+
+```javascript
+// 获取包含 Markdown 信息的摘要
+{
+  "format": "summary",
+  "returnType": "both"
+}
+
+// 返回结果包含：
+// - HTML 长度和预览
+// - Markdown 长度和文件信息  
+// - 缓存时间等元信息
+```
+
+### Markdown 转换特性
+
+- **高质量转换**: 使用 `turndown` 库进行专业的 HTML 到 Markdown 转换
+- **智能清理**: 自动移除样式、脚本等不必要的 HTML 内容
+- **格式保持**: 保留标题、列表、表格、代码块、链接、引用等结构
+- **文件管理**: 自动创建时间戳文件名和最新文件链接
+- **系统集成**: 保存到标准系统临时目录，支持跨平台访问
+
+### 文件存储结构
+
+```
+系统临时目录/nexusgui-cache/
+├── 测试界面-2025-08-03T14-51-39-788Z.md
+├── 测试界面-latest.md -> 测试界面-2025-08-03T14-51-39-788Z.md
+├── 用户表单-2025-08-03T15-20-15-456Z.md
+└── 用户表单-latest.md -> 用户表单-2025-08-03T15-20-15-456Z.md
+```
+
+### 使用场景
+
+- **文档生成**: 将动态 HTML 界面转换为可编辑的 Markdown 文档
+- **版本管理**: 便于将界面内容纳入版本控制系统
+- **AI 处理**: Markdown 格式更适合 AI 模型理解和处理
+- **跨平台兼容**: Markdown 在各种工具和平台中都有良好支持
+- **内容备份**: 自动备份界面内容为可读格式
 
 ### 同步等待结果
 

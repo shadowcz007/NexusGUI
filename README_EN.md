@@ -63,6 +63,13 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Support JavaScript event handling and interaction
 - ✅ Built-in `electronAPI.sendResult()` function for synchronous result waiting
 
+### HTML to Markdown Document Caching 🆕
+- ✅ Automatically convert HTML content to high-quality Markdown format
+- ✅ Intelligently save Markdown files to system temporary directory
+- ✅ Support getting Markdown file paths and direct content reading
+- ✅ Provide flexible cache retrieval methods (HTML, Markdown, or both)
+- ✅ Complete document caching and reading functionality for AI processing and version management
+
 ### Window Reuse Feature 🆕
 - ✅ Support reusing existing windows instead of destroying and recreating
 - ✅ Control window reuse behavior via `reuseWindow` parameter
@@ -278,6 +285,95 @@ After startup, the MCP server provides services at the following endpoints:
   `
 }
 ```
+
+## HTML to Markdown Feature Usage
+
+### Automatic Conversion and Caching
+
+When using the `render-gui` tool to render HTML interfaces, the system automatically:
+1. Converts HTML content to high-quality Markdown format
+2. Saves Markdown files to system temporary directory
+3. Records Markdown file information in global cache
+
+### Get Markdown File Path
+
+```javascript
+// Use get-gui tool to get only Markdown file path (fast)
+{
+  "markdownOnly": true
+}
+
+// Return result:
+// ✅ Markdown file path
+// 📁 File path: /tmp/nexusgui-cache/interface-title-2025-08-03T14-51-39-788Z.md
+// 📁 Latest file: /tmp/nexusgui-cache/interface-title-latest.md
+// 📄 File size: 1232 bytes
+// ⏰ Created time: 2025/8/3 14:51:39
+```
+
+### Read Markdown Content
+
+```javascript
+// Read and return Markdown file content
+{
+  "returnType": "markdown",
+  "readMarkdown": true
+}
+
+// Returns complete Markdown text content
+```
+
+### Get Both HTML and Markdown
+
+```javascript
+// Return both HTML and Markdown content
+{
+  "returnType": "both",
+  "showHtml": true,
+  "readMarkdown": true
+}
+```
+
+### Get Cache Summary Information
+
+```javascript
+// Get summary including Markdown information
+{
+  "format": "summary",
+  "returnType": "both"
+}
+
+// Return result includes:
+// - HTML length and preview
+// - Markdown length and file information
+// - Cache time and other metadata
+```
+
+### Markdown Conversion Features
+
+- **High-Quality Conversion**: Uses `turndown` library for professional HTML to Markdown conversion
+- **Smart Cleanup**: Automatically removes styles, scripts, and other unnecessary HTML content
+- **Format Preservation**: Maintains structure like headings, lists, tables, code blocks, links, quotes
+- **File Management**: Automatically creates timestamped filenames and latest file links
+- **System Integration**: Saves to standard system temporary directory with cross-platform support
+
+### File Storage Structure
+
+```
+System Temp Directory/nexusgui-cache/
+├── test-interface-2025-08-03T14-51-39-788Z.md
+├── test-interface-latest.md -> test-interface-2025-08-03T14-51-39-788Z.md
+├── user-form-2025-08-03T15-20-15-456Z.md
+└── user-form-latest.md -> user-form-2025-08-03T15-20-15-456Z.md
+```
+
+### Use Cases
+
+- **Document Generation**: Convert dynamic HTML interfaces to editable Markdown documents
+- **Version Control**: Easy to include interface content in version control systems
+- **AI Processing**: Markdown format is more suitable for AI model understanding and processing
+- **Cross-Platform Compatibility**: Markdown has good support across various tools and platforms
+- **Content Backup**: Automatically backup interface content in readable format
 
 ### Synchronous Result Waiting
 

@@ -1,6 +1,7 @@
 const BaseToolHandler = require('./BaseToolHandler');
 const renderGUISchema = require('../schemas/renderGUISchema');
 const { HtmlUtils, WindowConfigValidator } = require('../utils/htmlUtils');
+const MarkdownUtils = require('../utils/markdownUtils');
 
 /**
  * GUI渲染工具
@@ -159,28 +160,102 @@ class RenderGUITool extends BaseToolHandler {
     }
 
     /**
-     * 缓存HTML内容到全局
+     * 缓存HTML内容到全局并生成Markdown缓存
      * @param {string} html - HTML内容
      * @param {Object} config - 窗口配置
      */
     cacheHtml(html, config) {
-        global.renderGuiCache = {
-            html: html,
-            config: {
+        try {
+            // 转换HTML为Markdown
+            const markdown = MarkdownUtils.convertHtmlToMarkdown(html);
+            
+            // 保存Markdown到临时目录
+            const markdownSaveResult = MarkdownUtils.saveMarkdownToTemp(markdown, config.title);
+            
+            // 更新全局缓存，包含Markdown信息
+            global.renderGuiCache = {
+                html: html,
+                markdown: {
+                    content: markdown,
+                    filePath: markdownSaveResult.filePath,
+                    latestFilePath: markdownSaveResult.latestFilePath,
+                    filename: markdownSaveResult.filename,
+                    size: markdownSaveResult.size,
+                    created: markdownSaveResult.created
+                },
+                config: {
+                    title: config.title,
+                    width: config.width,
+                    height: config.height,
+                    data: config.data,
+                    callbacks: config.callbacks
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            this.log('info', '已缓存HTML内容到全局并生成Markdown文件', { 
+                htmlLength: html.length,
+                markdownLength: markdown.length,
+                markdownPath: markdownSaveResult.filePath,
                 title: config.title,
-                width: config.width,
-                height: config.height,
-                data: config.data,
-                callbacks: config.callbacks
-            },
-            timestamp: new Date().toISOString()
-        };
-        
-        this.log('info', '已缓存HTML内容到全局', { 
-            htmlLength: html.length,
-            title: config.title,
-            timestamp: global.renderGuiCache.timestamp
-        });
+                timestamp: global.renderGuiCache.timestamp
+            });
+
+        } catch (error) {
+            // 如果Markdown转换失败，仍然保存HTML缓存
+            this.log('warn', 'Markdown转换失败，仅保存HTML缓存', { error: error.message });
+            
+            global.renderGuiCache = {
+                html: html,
+                markdown: null,
+                config: {
+                    title: config.title,
+                    width: config.width,
+                    height: config.height,
+                    data: config.data,
+                    callbacks: config.callbacks
+                },
+                timestamp: new Date().toISOString()
+            };
+            
+            this.log('info', '已缓存HTML内容到全局（无Markdown）', { 
+                htmlLength: html.length,
+                title: config.title,
+                timestamp: global.renderGuiCache.timestamp
+            });
+        }
+    }
+
+    /**
+     * 清理Markdown缓存文件
+     * @param {number} maxAge - 最大保留时间（毫秒）
+     * @param {number} maxFiles - 最大保留文件数
+     * @returns {Object} 清理结果
+     */
+    cleanupMarkdownCache(maxAge, maxFiles) {
+        try {
+            const result = MarkdownUtils.cleanupTempFiles(maxAge, maxFiles);
+            this.log('info', 'Markdown缓存清理完成', result);
+            return result;
+        } catch (error) {
+            this.log('error', 'Markdown缓存清理失败', { error: error.message });
+            throw error;
+        }
+    }
+
+    /**
+     * 获取Markdown缓存信息
+     * @returns {Object} 缓存信息
+     */
+    getMarkdownCacheInfo() {
+        try {
+            const info = MarkdownUtils.getCacheInfo();
+            this.log('info', '获取Markdown缓存信息', info);
+            return info;
+        } catch (error) {
+            this.log('error', '获取Markdown缓存信息失败', { error: error.message });
+            throw error;
+        }
     }
 
     /**
