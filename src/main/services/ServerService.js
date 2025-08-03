@@ -39,7 +39,8 @@ class ServerService {
 
             // 初始化服务器
             const { sseServer: createSSEServer } = await initializeSSEMCPServer();
-            this.sseServer = createSSEServer(serverPort);
+            this.sseServerInstance = createSSEServer(serverPort);
+            this.sseServer = this.sseServerInstance.server; // 保持向后兼容
 
             // 更新状态为运行中
             this.appStateService.updateServerInfo({
@@ -74,7 +75,7 @@ class ServerService {
      * @returns {Promise<boolean>} 停止是否成功
      */
     async stop() {
-        if (this.sseServer) {
+        if (this.sseServerInstance) {
             try {
                 console.log('🛑 正在停止 SSE MCP 服务器...');
                 
@@ -82,7 +83,8 @@ class ServerService {
                     status: 'stopping'
                 });
 
-                this.sseServer.close();
+                await this.sseServerInstance.close();
+                this.sseServerInstance = null;
                 this.sseServer = null;
 
                 this.appStateService.updateServerInfo({
@@ -118,19 +120,19 @@ class ServerService {
     }
 
     /**
-     * 获取服务器状态
-     * @returns {object} 服务器状态信息
+     * 获取 RenderGUITool 实例
+     * @returns {RenderGUITool|null} RenderGUITool 实例
      */
-    getStatus() {
-        return this.appStateService.getState('mcpServerInfo');
-    }
-
-    /**
-     * 检查服务器是否运行
-     * @returns {boolean} 服务器是否运行中
-     */
-    isRunning() {
-        return this.sseServer !== null && this.getStatus().status === 'running';
+    getRenderGUITool() {
+        try {
+            if (this.sseServer && this.sseServer.toolRegistry) {
+                return this.sseServer.toolRegistry.getTool('render-gui');
+            }
+            return null;
+        } catch (error) {
+            console.error('❌ 获取 RenderGUITool 失败:', error);
+            return null;
+        }
     }
 
     /**
@@ -154,9 +156,10 @@ class ServerService {
      */
     cleanup() {
         console.log('🧹 清理服务器服务...');
-        if (this.sseServer) {
+        if (this.sseServerInstance) {
             try {
-                this.sseServer.close();
+                this.sseServerInstance.close();
+                this.sseServerInstance = null;
                 this.sseServer = null;
                 console.log('✅ 服务器已关闭');
             } catch (error) {

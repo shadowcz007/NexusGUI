@@ -7,6 +7,7 @@ const path = require('path');
 // 导入重构后的工具系统
 const ToolRegistry = require('./tools/ToolRegistry');
 const RenderGUITool = require('./tools/RenderGUITool');
+const GetGUITool = require('./tools/GetGUITool');
 const InjectJSTool = require('./tools/InjectJSTool');
 const NotificationTool = require('./tools/NotificationTool');
 
@@ -22,19 +23,16 @@ let globalToolRegistry = null;
 // Initialize modules
 async function initializeModules() {
     if (!Server) {
-        const sdkServer = await
-        import ('@modelcontextprotocol/sdk/server/index.js');
+        const sdkServer = await import('@modelcontextprotocol/sdk/server/index.js');
         Server = sdkServer.Server;
 
-        const sdkTypes = await
-        import ('@modelcontextprotocol/sdk/types.js');
+        const sdkTypes = await import('@modelcontextprotocol/sdk/types.js');
         CallToolRequestSchema = sdkTypes.CallToolRequestSchema;
         ErrorCode = sdkTypes.ErrorCode;
         ListToolsRequestSchema = sdkTypes.ListToolsRequestSchema;
         McpError = sdkTypes.McpError;
 
-        const sseTransport = await
-        import ('./transport.js');
+        const sseTransport = await import('./transport.js');
         SSEServerTransport = sseTransport.SSEServerTransport;
     }
 }
@@ -46,8 +44,13 @@ async function initializeToolRegistry() {
         
         globalToolRegistry = new ToolRegistry();
         
+        // 创建工具实例
+        const renderGUITool = new RenderGUITool();
+        const getGUITool = new GetGUITool(); // 不再需要传入renderGUITool实例，直接从全局缓存获取
+        
         // 注册所有工具
-        globalToolRegistry.register(new RenderGUITool());
+        globalToolRegistry.register(renderGUITool);
+        globalToolRegistry.register(getGUITool);
         globalToolRegistry.register(new InjectJSTool());
         // globalToolRegistry.register(new NotificationTool());
         
@@ -779,7 +782,7 @@ function createServer(port = 3001) {
     });
 
     // 启动服务器
-    const server = app.listen(port, (error) => {
+    const server = app.listen(port, async (error) => {
         if (error) {
             console.error('❌ 启动服务器失败:', error);
             throw error;
@@ -790,11 +793,15 @@ function createServer(port = 3001) {
         console.log(`🏥 健康检查: http://localhost:${port}/health`);
         console.log(`🐛 调试端点: http://localhost:${port}/debug/sessions`);
         console.log(`🌐 CORS 已启用，允许跨域请求`);
+        
+        // 确保工具注册器已初始化
+        await initializeToolRegistry();
     });
 
     // 返回服务器实例和关闭函数
     return {
         server,
+        toolRegistry: globalToolRegistry, // 暴露工具注册器
         close: async() => {
             console.log('正在关闭 SSE 服务器...');
 

@@ -18,9 +18,15 @@ class RenderGUITool extends BaseToolHandler {
                 'HTML 内容可以是文件路径或直接的 HTML 字符串，优先使用HTML字符串。',
                 '可使用的electronAPI={',
                 '"sendResult":function(result){}, //用于同步等待结果',
-                '}'
+                '}',
+                '支持HTML缓存功能，保存最新传入的HTML内容到全局缓存。'
             ].join('\n')
         );
+        
+        // 初始化全局缓存（如果不存在）
+        if (!global.renderGuiCache) {
+            global.renderGuiCache = null;
+        }
     }
 
     /**
@@ -67,6 +73,9 @@ class RenderGUITool extends BaseToolHandler {
             const htmlResult = this.processHtmlInput(config.html);
             const processedHtml = htmlResult.content;
             const inputType = htmlResult.type;
+
+            // 缓存HTML内容到全局
+            this.cacheHtml(processedHtml, config);
 
             // 检查主进程支持
             if (!global.createWindow) {
@@ -121,7 +130,7 @@ class RenderGUITool extends BaseToolHandler {
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}`
+                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}\n💾 HTML已缓存到全局`
                     }],
                     result: result
                 };
@@ -139,7 +148,7 @@ class RenderGUITool extends BaseToolHandler {
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}`
+                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局`
                     }]
                 };
             }
@@ -147,6 +156,96 @@ class RenderGUITool extends BaseToolHandler {
             this.handleError(error, { args });
             throw error;
         }
+    }
+
+    /**
+     * 缓存HTML内容到全局
+     * @param {string} html - HTML内容
+     * @param {Object} config - 窗口配置
+     */
+    cacheHtml(html, config) {
+        global.renderGuiCache = {
+            html: html,
+            config: {
+                title: config.title,
+                width: config.width,
+                height: config.height,
+                data: config.data,
+                callbacks: config.callbacks
+            },
+            timestamp: new Date().toISOString()
+        };
+        
+        this.log('info', '已缓存HTML内容到全局', { 
+            htmlLength: html.length,
+            title: config.title,
+            timestamp: global.renderGuiCache.timestamp
+        });
+    }
+
+    /**
+     * 从全局获取缓存的HTML内容
+     * @returns {Object|null} 缓存的HTML内容和配置
+     */
+    getCachedHtml() {
+        return global.renderGuiCache || null;
+    }
+
+    /**
+     * 清除全局HTML缓存
+     */
+    clearCache() {
+        global.renderGuiCache = null;
+        this.log('info', '已清除全局HTML缓存');
+    }
+
+    /**
+     * 显示缓存的HTML（当激活窗口时调用）
+     * @returns {Promise<Object>} 执行结果
+     */
+    async showCachedGui() {
+        const cachedData = this.getCachedHtml();
+        
+        if (!cachedData) {
+            return {
+                content: [{
+                    type: 'text',
+                    text: '❌ 没有缓存的HTML内容'
+                }]
+            };
+        }
+
+        this.log('info', '显示缓存的GUI', { 
+            title: cachedData.config.title,
+            cacheTime: cachedData.timestamp
+        });
+
+        // 检查主进程支持
+        if (!global.createWindow) {
+            throw new Error('当前环境不支持窗口创建，请在 Electron 主进程中运行。');
+        }
+
+        // 使用缓存的配置创建窗口
+        const windowConfig = {
+            type: 'dynamic',
+            title: cachedData.config.title,
+            width: cachedData.config.width,
+            height: cachedData.config.height,
+            html: cachedData.html,
+            data: cachedData.config.data,
+            callbacks: cachedData.config.callbacks,
+            reuseWindow: true,
+            waitForResult: false
+        };
+
+        await global.createWindow(windowConfig);
+
+        return {
+            content: [{
+                type: 'text',
+                text: `✅ 已显示缓存的界面 "${cachedData.config.title}"\n📱 窗口尺寸: ${cachedData.config.width}x${cachedData.config.height}\n⏰ 缓存时间: ${new Date(cachedData.timestamp).toLocaleString('zh-CN')}\n🔄 已复用现有窗口`
+            }]
+        };
     }
 
     /**
@@ -193,6 +292,8 @@ class RenderGUITool extends BaseToolHandler {
         if (!global.createWindow) {
             this.log('warn', '主进程中未找到 createWindow 函数，GUI渲染功能可能不可用');
         }
+
+        this.log('info', 'GUI渲染工具初始化完成，支持全局HTML缓存功能');
     }
 
     /**

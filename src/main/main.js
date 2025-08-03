@@ -22,6 +22,69 @@ global.createWindow = async (config = {}) => {
     }
 };
 
+// 获取 RenderGUITool 实例的辅助函数
+async function getRenderGUITool() {
+    try {
+        // 确保服务管理器已初始化
+        if (!serviceManager.isServiceManagerInitialized()) {
+            await serviceManager.initialize();
+        }
+        
+        const serverService = serviceManager.getService('server');
+        if (serverService) {
+            const renderGUITool = serverService.getRenderGUITool();
+            return renderGUITool;
+        }
+    } catch (error) {
+        console.error('❌ 获取 RenderGUITool 失败:', error);
+    }
+    return null;
+}
+
+// 显示缓存的 GUI（仅当有缓存时）
+async function showAppWindow() {
+    try {
+        console.log('🔍 检查是否有缓存的 render-gui HTML...');
+        
+        // 直接从全局获取缓存
+        const cachedHtml = global.renderGuiCache;
+        
+        if (cachedHtml) {
+            console.log('✅ 找到缓存的 HTML，显示缓存的 GUI');
+            console.log('📄 缓存详情:', {
+                title: cachedHtml.config?.title,
+                htmlLength: cachedHtml.html?.length,
+                timestamp: cachedHtml.timestamp
+            });
+            
+            // 直接使用全局 createWindow 创建窗口
+            const windowConfig = {
+                type: 'dynamic',
+                title: cachedHtml.config.title,
+                width: cachedHtml.config.width,
+                height: cachedHtml.config.height,
+                html: cachedHtml.html,
+                data: cachedHtml.config.data,
+                callbacks: cachedHtml.config.callbacks,
+                reuseWindow: true,
+                waitForResult: false
+            };
+            
+            await global.createWindow(windowConfig);
+            console.log('🎉 缓存的 GUI 已成功显示');
+            return;
+        }
+        
+        console.log('ℹ️ 没有找到缓存的 HTML，不显示任何窗口');
+        
+    } catch (error) {
+        console.error('❌ 显示应用窗口失败:', error);
+    }
+}
+
+// 暴露 showAppWindow 函数给其他模块使用
+global.showAppWindow = showAppWindow;
+
 // 全局函数：向当前活动窗口注入 JavaScript 代码
 global.injectJsToWindow = async (config) => {
     const { code, waitForResult, params } = config;
@@ -117,12 +180,8 @@ app.whenReady().then(async () => {
     // macOS 激活事件
     app.on('activate', async () => {
         if (process.platform === 'darwin') {
-            try {
-                const windowService = serviceManager.getService('window');
-                await windowService.showMCPConsole();
-            } catch (error) {
-                console.error('❌ 激活时显示控制台失败:', error);
-            }
+            console.log('🍎 macOS 应用激活事件触发');
+            await showAppWindow();
         }
     });
 });

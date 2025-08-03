@@ -71,9 +71,18 @@ class TrayService {
      * 设置事件监听器
      */
     setupEventListeners() {
-        // 双击托盘图标显示主控制台
-        this.tray.on('double-click', () => {
-            this.windowService.showMCPConsole();
+        // 双击托盘图标显示缓存的 GUI（如果有的话）
+        this.tray.on('double-click', async () => {
+            console.log('🖱️ 托盘图标双击');
+            try {
+                if (global.showAppWindow) {
+                    await global.showAppWindow();
+                } else {
+                    console.log('ℹ️ showAppWindow 函数不可用');
+                }
+            } catch (error) {
+                console.error('❌ 双击托盘图标显示窗口失败:', error);
+            }
         });
 
         // 右键点击显示菜单（某些系统需要）
