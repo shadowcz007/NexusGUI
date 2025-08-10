@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { app } = require('electron');
 
 /**
  * 统一日志服务
@@ -17,7 +18,7 @@ class LoggerService {
         this.levelNames = ['ERROR', 'WARN', 'INFO', 'DEBUG'];
         this.currentLevel = options.level || this.levels.INFO;
         this.enableFileLogging = options.enableFileLogging || false;
-        this.logDir = options.logDir || path.join(process.cwd(), 'logs');
+        this.logDir = options.logDir || this.getSystemLogDirectory();
         this.maxLogFiles = options.maxLogFiles || 5;
         this.maxLogSize = options.maxLogSize || 10 * 1024 * 1024; // 10MB
         
@@ -38,15 +39,58 @@ class LoggerService {
     }
     
     /**
+     * 获取系统日志目录
+     * @returns {string} 系统日志目录路径
+     */
+    getSystemLogDirectory() {
+        try {
+            // 优先使用 Electron 的 logs 目录
+            if (app && app.getPath) {
+                const logsPath = app.getPath('logs');
+                return path.join(logsPath, 'NexusGUI');
+            }
+            
+            // 如果 app 不可用，使用用户数据目录
+            if (app && app.getPath) {
+                const userDataPath = app.getPath('userData');
+                return path.join(userDataPath, 'logs');
+            }
+            
+            // 降级方案：使用系统临时目录
+            const os = require('os');
+            return path.join(os.tmpdir(), 'NexusGUI', 'logs');
+            
+        } catch (error) {
+            console.warn('获取系统日志目录失败，使用默认路径:', error);
+            // 最终降级方案
+            return path.join(process.cwd(), 'logs');
+        }
+    }
+
+    /**
      * 确保日志目录存在
      */
     ensureLogDirectory() {
         try {
             if (!fs.existsSync(this.logDir)) {
                 fs.mkdirSync(this.logDir, { recursive: true });
+                console.log(`✅ 创建日志目录: ${this.logDir}`);
             }
         } catch (error) {
             console.error('创建日志目录失败:', error);
+            // 尝试使用备用目录
+            try {
+                const fallbackDir = path.join(process.cwd(), 'logs');
+                this.logDir = fallbackDir;
+                if (!fs.existsSync(fallbackDir)) {
+                    fs.mkdirSync(fallbackDir, { recursive: true });
+                    console.log(`✅ 使用备用日志目录: ${fallbackDir}`);
+                }
+            } catch (fallbackError) {
+                console.error('创建备用日志目录也失败:', fallbackError);
+                this.enableFileLogging = false;
+                console.warn('⚠️ 文件日志已自动禁用');
+            }
         }
     }
     
