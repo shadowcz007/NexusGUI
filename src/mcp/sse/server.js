@@ -50,22 +50,18 @@ async function initializeToolRegistry() {
         console.log('🔧 初始化工具注册器...');
         
         globalToolRegistry = new ToolRegistry();
-        
-        // 创建工具实例
-        const renderGUITool = new RenderGUITool();
-        const getGUITool = new GetGUITool(); // 不再需要传入renderGUITool实例，直接从全局缓存获取
-        
+         
         // 注册所有工具
-        globalToolRegistry.register(renderGUITool);
-        globalToolRegistry.register(getGUITool);
+        globalToolRegistry.register(new RenderGUITool());
+        globalToolRegistry.register(new GetGUITool());
         globalToolRegistry.register(new InjectJSTool());
-        globalToolRegistry.register(new ShowInFileManagerTool());
-        globalToolRegistry.register(new RenderHistoryTool());
-        globalToolRegistry.register(new QuickTestTool());
-        globalToolRegistry.register(new NetworkStatusTool());
-        globalToolRegistry.register(new DebugLogsTool());
-        globalToolRegistry.register(new MonitorInfoTool());
-        globalToolRegistry.register(new TestTool());
+        // globalToolRegistry.register(new ShowInFileManagerTool());
+        // globalToolRegistry.register(new RenderHistoryTool());
+        // globalToolRegistry.register(new QuickTestTool());
+        // globalToolRegistry.register(new NetworkStatusTool());
+        // globalToolRegistry.register(new DebugLogsTool());
+        // globalToolRegistry.register(new MonitorInfoTool());
+        // globalToolRegistry.register(new TestTool());
         // globalToolRegistry.register(new NotificationTool());
         
         // 初始化所有工具
