@@ -16,6 +16,7 @@ class WindowService {
     constructor(appStateService, serverService, loggerService, errorHandlerService) {
         this.appStateService = appStateService;
         this.serverService = serverService;
+        this.loggerService = loggerService; // Store the main logger service
         this.logger = loggerService.createModuleLogger('WINDOW');
         this.errorHandler = errorHandlerService;
         this.logger.info('窗口服务已初始化');
@@ -421,11 +422,8 @@ class WindowService {
      */
     async showDebugConsole() {
         try {
-            // 获取日志服务
-            const loggerService = this.logger;
-
             // 获取最近的日志
-            const recentLogs = loggerService.getRecentLogs(200);
+            const recentLogs = this.loggerService.getRecentLogs(200);
 
             // 生成调试控制台 HTML
             const { generateDebugConsoleHTML } = require('../html');
