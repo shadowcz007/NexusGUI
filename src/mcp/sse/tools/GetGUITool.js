@@ -278,10 +278,21 @@ class GetGUITool extends BaseToolHandler {
                         fullLines.push(`  - 文件大小: ${cachedData.markdown.size} 字节`);
                         fullLines.push(`  - 创建时间: ${new Date(cachedData.markdown.created).toLocaleString('zh-CN')}`);
                         
+                        // 添加在文件管理器中显示文件的选项
+                        fullLines.push(`  - 💡 提示: 使用 "show-in-file-manager" 工具在文件管理器中查看此文件`);
+                        
                         if (readMarkdown && markdownContent) {
-                            fullLines.push(`\n📖 完整Markdown内容:\n${markdownContent}`);
+                            // 如果 Markdown 内容较长，只显示前1000个字符并提供预览提示
+                            if (markdownContent.length > 1000) {
+                                const previewContent = markdownContent.substring(0, 1000);
+                                fullLines.push(`\n📖 Markdown内容预览 (前1000字符):\n${previewContent}\n\n... (内容已截断)`);
+                                fullLines.push('\n💡 使用 "show-in-file-manager" 工具在文件管理器中查看完整内容');
+                            } else {
+                                fullLines.push(`\n📖 完整Markdown内容:\n${markdownContent}`);
+                            }
                         } else {
                             fullLines.push('\n💡 使用 readMarkdown: true 参数查看完整Markdown内容');
+                            fullLines.push('💡 或使用 "show-in-file-manager" 工具在文件管理器中查看文件');
                         }
                     } else {
                         fullLines.push('\n❌ Markdown转换失败，无法提供Markdown内容');

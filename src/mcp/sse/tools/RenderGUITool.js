@@ -128,10 +128,19 @@ class RenderGUITool extends BaseToolHandler {
                 
                 this.log('info', 'MCP 窗口操作完成', { result });
 
+                // 获取Markdown文件路径（如果已生成）
+                let markdownInfo = '';
+                if (global.renderGuiCache && global.renderGuiCache.markdown) {
+                    markdownInfo = `\n📄 Markdown文件已生成: ${global.renderGuiCache.markdown.filePath}`;
+                    if (global.renderGuiCache.markdown.latestFilePath) {
+                        markdownInfo += `\n🔗 最新文件链接: ${global.renderGuiCache.markdown.latestFilePath}`;
+                    }
+                }
+
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}\n💾 HTML已缓存到全局`
+                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}\n💾 HTML已缓存到全局${markdownInfo}`
                     }],
                     result: result
                 };
@@ -145,12 +154,24 @@ class RenderGUITool extends BaseToolHandler {
                 const windowProps = this.buildWindowPropsInfo(config);
                 const reuseInfo = config.reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
                 const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
+                
+                // 获取Markdown文件路径（如果已生成）
+                let markdownInfo = '';
+                let markdownPath = '';
+                if (global.renderGuiCache && global.renderGuiCache.markdown) {
+                    markdownInfo = `\n📄 Markdown文件已生成: ${global.renderGuiCache.markdown.filePath}`;
+                    if (global.renderGuiCache.markdown.latestFilePath) {
+                        markdownInfo += `\n🔗 最新文件链接: ${global.renderGuiCache.markdown.latestFilePath}`;
+                    }
+                    markdownPath = global.renderGuiCache.markdown.filePath;
+                }
 
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局`
-                    }]
+                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局${markdownInfo}${markdownPath ? '\n🔍 使用 "get-gui" 工具并设置 "readMarkdown": true 参数查看 Markdown 内容预览' : ''}`
+                    }],
+                    markdownPath: markdownPath
                 };
             }
         } catch (error) {
@@ -193,6 +214,11 @@ class RenderGUITool extends BaseToolHandler {
                 timestamp: new Date().toISOString()
             };
             
+            // 添加到渲染历史记录
+            if (global.appStateService) {
+                global.appStateService.addRenderHistory(global.renderGuiCache);
+            }
+            
             this.log('info', '已缓存HTML内容到全局并生成Markdown文件', { 
                 htmlLength: html.length,
                 markdownLength: markdown.length,
@@ -217,6 +243,11 @@ class RenderGUITool extends BaseToolHandler {
                 },
                 timestamp: new Date().toISOString()
             };
+            
+            // 添加到渲染历史记录
+            if (global.appStateService) {
+                global.appStateService.addRenderHistory(global.renderGuiCache);
+            }
             
             this.log('info', '已缓存HTML内容到全局（无Markdown）', { 
                 htmlLength: html.length,

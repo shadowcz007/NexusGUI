@@ -28,6 +28,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
         }
     },
     
+    // 发送消息到主进程
+    send: (channel, data) => {
+        // 定义允许的通道列表
+        let validChannels = ['startup-wizard-complete', 'open-dev-tools', 'toggle-window-pin'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.send(channel, data);
+        }
+    },
+    
+    // 在文件管理器中显示文件
+    showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
+    
+    // MCP 工具相关 API
+    getAvailableTools: () => ipcRenderer.invoke('get-available-tools'),
+    executeMCPTool: (toolName, params) => ipcRenderer.invoke('execute-mcp-tool', toolName, params),
+    
     // 原有的 API
     openExternal: (url) => ipcRenderer.invoke('open-external', url),
     getVersion: () => ipcRenderer.invoke('get-version'),
@@ -35,35 +51,71 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 // 在页面加载完成后初始化 i18n
-window.addEventListener('DOMContentLoaded', async () => {
-    try {
-        // 获取当前语言
-        const currentLocale = await window.electronAPI.getCurrentLocale();
+window.addEventListener('DOMContentLoaded',  () => {
+    setTimeout(async()=>{
+
+        try {
+        // 检查 electronAPI 是否可用
+        if (!window.electronAPI || typeof window.electronAPI.getCurrentLocale !== 'function') {
+            console.error('electronAPI 不可用或 getCurrentLocale 方法不存在');
+            return;
+        }
+        
+        // 获取当前语言，添加超时处理
+        const currentLocale = await Promise.race([
+            window.electronAPI.getCurrentLocale(),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('获取语言超时')), 5000)
+            )
+        ]);
+        
         console.log('当前语言:', currentLocale);
         
         // 设置页面语言属性
-        document.documentElement.lang = currentLocale;
+        if (currentLocale) {
+            document.documentElement.lang = currentLocale;
+        }
         
         // 监听语言变更
-        window.electronAPI.onLanguageChanged((newLocale) => {
-            console.log('语言已更改为:', newLocale);
-            document.documentElement.lang = newLocale;
-            
-            // 触发自定义事件，通知页面语言已更改
-            window.dispatchEvent(new CustomEvent('language-changed', { 
-                detail: { locale: newLocale } 
-            }));
-        });
+        if (typeof window.electronAPI.onLanguageChanged === 'function') {
+            window.electronAPI.onLanguageChanged((newLocale) => {
+                console.log('语言已更改为:', newLocale);
+                document.documentElement.lang = newLocale;
+                
+                // 触发自定义事件，通知页面语言已更改
+                window.dispatchEvent(new CustomEvent('language-changed', { 
+                    detail: { locale: newLocale } 
+                }));
+            });
+        }
         
     } catch (error) {
         console.error('初始化 i18n 失败:', error);
+        // 设置默认语言
+        document.documentElement.lang = 'en-US';
     }
+
+    },5000)
 });
 
 // 提供全局翻译函数
 window.t = async (key, fallback) => {
     try {
-        return await window.electronAPI.t(key, fallback);
+        // 检查 electronAPI 是否可用
+        if (!window.electronAPI || typeof window.electronAPI.t !== 'function') {
+            console.warn('electronAPI.t 不可用，返回后备文本');
+            return fallback || key;
+        }
+        
+        // 添加超时处理
+        const translation = await Promise.race([
+            window.electronAPI.t(key, fallback),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('翻译请求超时')), 3000)
+            )
+        ]);
+        
+        return translation;
     } catch (error) {
         console.error('翻译失败:', error);
         return fallback || key;

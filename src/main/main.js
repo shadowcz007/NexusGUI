@@ -3,6 +3,55 @@ const path = require('path');
 const { settingsManager } = require('../config/settings.js');
 const i18n = require('../i18n');
 const { serviceManager } = require('./managers/ServiceManager');
+const { generateStartupWizardHTML } = require('./html');
+
+// 提前注册 i18n 相关 IPC 处理器，确保在任何窗口创建前就可用
+ipcMain.handle('get-current-locale', async () => {
+    try {
+        // 确保 i18n 已初始化
+        if (!i18n.getCurrentLocale() || i18n.getCurrentLocale() === 'en-US') {
+            await i18n.initialize();
+        }
+        return i18n.getCurrentLocale();
+    } catch (error) {
+        console.error('获取当前语言失败:', error);
+        return 'en-US'; // 返回默认语言
+    }
+});
+
+ipcMain.handle('set-locale', async (event, locale) => {
+    try {
+        const success = await i18n.setLocale(locale);
+        if (success) {
+            // 通知所有窗口语言已更改
+            BrowserWindow.getAllWindows().forEach(win => {
+                win.webContents.send('language-changed', locale);
+            });
+        }
+        return success;
+    } catch (error) {
+        console.error('设置语言失败:', error);
+        return false;
+    }
+});
+
+ipcMain.handle('get-translation', async (event, key, fallback) => {
+    try {
+        return i18n.t(key, fallback);
+    } catch (error) {
+        console.error('获取翻译失败:', error);
+        return fallback || key;
+    }
+});
+
+ipcMain.handle('get-supported-locales', async () => {
+    try {
+        return i18n.getSupportedLocales();
+    } catch (error) {
+        console.error('获取支持的语言列表失败:', error);
+        return ['en-US', 'zh-CN'];
+    }
+});
 
 // 暴露给全局，供 MCP 服务器调用（保持向后兼容）
 global.createWindow = async (config = {}) => {
@@ -28,6 +77,51 @@ global.createWindow = async (config = {}) => {
         throw error;
     }
 };
+
+// 暴露 appStateService 给全局作用域
+global.appStateService = null;
+Object.defineProperty(global, 'appStateService', {
+    get: function() {
+        if (serviceManager && serviceManager.isServiceManagerInitialized()) {
+            try {
+                return serviceManager.getService('appState');
+            } catch (error) {
+                return null;
+            }
+        }
+        return null;
+    }
+});
+
+// 暴露 loggerService 给全局作用域
+global.loggerService = null;
+Object.defineProperty(global, 'loggerService', {
+    get: function() {
+        if (serviceManager && serviceManager.isServiceManagerInitialized()) {
+            try {
+                return serviceManager.getService('logger');
+            } catch (error) {
+                return null;
+            }
+        }
+        return null;
+    }
+});
+
+// 暴露 serverService 给全局作用域
+global.serverService = null;
+Object.defineProperty(global, 'serverService', {
+    get: function() {
+        if (serviceManager && serviceManager.isServiceManagerInitialized()) {
+            try {
+                return serviceManager.getService('server');
+            } catch (error) {
+                return null;
+            }
+        }
+        return null;
+    }
+});
 
 // 获取 RenderGUITool 实例的辅助函数
 async function getRenderGUITool() {
@@ -173,6 +267,10 @@ app.whenReady().then(async () => {
     let logger, errorHandler;
     
     try {
+        // 初始化 i18n
+        await i18n.initialize();
+        console.log('✅ i18n 初始化完成');
+        
         // 启动所有服务
         await serviceManager.startAll();
         
@@ -182,10 +280,18 @@ app.whenReady().then(async () => {
         
         logger.info('应用启动中...');
         
-        // 可选：显示主窗口
-        if (process.argv.includes('--show-main-window')) {
-            const windowService = serviceManager.getService('window');
-            await windowService.showMCPConsole();
+        // 检查是否是首次运行
+        const isFirstRun = settingsManager.getSetting('startup.firstRun');
+        if (isFirstRun) {
+            // 显示首次运行向导
+            await showStartupWizard();
+        } else {
+            // 根据启动模式设置决定是否显示主窗口
+            const startupMode = settingsManager.getSetting('startup.mode');
+            if (startupMode === 'window' || process.argv.includes('--show-main-window')) {
+                const windowService = serviceManager.getService('window');
+                await windowService.showMCPConsole();
+            }
         }
 
         logger.info('应用启动完成');
@@ -210,6 +316,43 @@ app.whenReady().then(async () => {
         }
     });
 });
+
+// 显示首次运行向导窗口
+async function showStartupWizard() {
+    console.log('🔍 显示首次运行向导...');
+    
+    try {
+        // 创建向导窗口
+        const wizardWindow = new BrowserWindow({
+            width: 550,
+            height: 600,
+            title: 'NexusGUI - 首次运行向导',
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                preload: path.join(__dirname, 'preload.js')
+            },
+            resizable: false,
+            maximizable: false,
+            icon: path.join(__dirname, '../assets', 'icon.png'),
+            center: true
+        });
+
+        // 加载向导HTML
+        const wizardHTML = generateStartupWizardHTML();
+        wizardWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(wizardHTML)}`);
+
+        // 设置开发者工具
+        if (process.argv.includes('--dev')) {
+            wizardWindow.webContents.openDevTools();
+            console.log('🔧 开发者工具已打开');
+        }
+
+        console.log('✅ 首次运行向导已显示');
+    } catch (error) {
+        console.error('❌ 显示首次运行向导失败:', error);
+    }
+}
 
 // 窗口关闭事件
 app.on('window-all-closed', () => {
@@ -267,6 +410,20 @@ ipcMain.handle('mcp-result', async (event, result) => {
     return { success: true };
 });
 
+
+// 添加在文件管理器中显示文件的处理程序
+ipcMain.handle('show-item-in-folder', async (event, filePath) => {
+    try {
+        const { shell } = require('electron');
+        shell.showItemInFolder(filePath);
+        console.log(`✅ 在文件管理器中显示文件: ${filePath}`);
+        return { success: true };
+    } catch (error) {
+        console.error('❌ 在文件管理器中显示文件失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // 处理窗口结果（用于同步等待）
 ipcMain.handle('window-result', async (event, result) => {
     console.log('📤 收到窗口结果:', result);
@@ -294,6 +451,60 @@ ipcMain.on('open-dev-tools', (event) => {
     console.log('🔧 开发者工具已打开');
 });
 
+// 处理窗口固定/取消固定请求
+ipcMain.on('toggle-window-pin', async (event, isPinned) => {
+    try {
+        console.log('📥 收到窗口固定状态切换请求:', isPinned);
+        
+        // 获取发送事件的窗口
+        const window = BrowserWindow.fromWebContents(event.sender);
+        
+        if (window) {
+            // 更新窗口的固定状态
+            window.isPinned = isPinned;
+            console.log(`📌 窗口固定状态已更新: ${isPinned}`);
+            
+            // 发送响应
+            event.reply('window-pin-toggled', { success: true, isPinned });
+        } else {
+            console.error('❌ 无法找到对应的窗口');
+            event.reply('window-pin-toggled', { success: false, error: '无法找到对应的窗口' });
+        }
+    } catch (error) {
+        console.error('❌ 处理窗口固定状态切换失败:', error);
+        event.reply('window-pin-toggled', { success: false, error: error.message });
+    }
+});
+
+// 处理首次运行向导完成事件
+ipcMain.on('startup-wizard-complete', async (event, mode) => {
+    console.log('📥 收到来自向导的选择:', mode);
+    
+    try {
+        // 更新设置
+        settingsManager.setSetting('startup.mode', mode);
+        settingsManager.setSetting('startup.firstRun', false);
+        
+        // 获取发送事件的窗口
+        const wizardWindow = BrowserWindow.fromWebContents(event.sender);
+        
+        // 关闭向导窗口
+        if (wizardWindow) {
+            wizardWindow.close();
+        }
+        
+        // 根据选择的模式启动相应功能
+        if (mode === 'window') {
+            const windowService = serviceManager.getService('window');
+            await windowService.showMCPConsole();
+        }
+        
+        console.log('✅ 首次运行向导已完成，设置已保存');
+    } catch (error) {
+        console.error('❌ 处理向导完成事件失败:', error);
+    }
+});
+
 // 添加窗口状态检查
 ipcMain.handle('check-window-status', async () => {
     const windows = BrowserWindow.getAllWindows();
@@ -307,6 +518,86 @@ ipcMain.handle('check-window-status', async () => {
             bounds: win.getBounds()
         }))
     };
+});
+
+// MCP 工具相关 IPC 处理程序
+ipcMain.handle('get-available-tools', async () => {
+    try {
+        // 确保服务管理器已初始化
+        if (!serviceManager.isServiceManagerInitialized()) {
+            await serviceManager.initialize();
+        }
+        
+        const serverService = serviceManager.getService('server');
+        if (!serverService || !serverService.sseServerInstance || !serverService.sseServerInstance.toolRegistry) {
+            return {
+                success: false,
+                error: '工具注册器未初始化',
+                tools: []
+            };
+        }
+        
+        const toolRegistry = serverService.sseServerInstance.toolRegistry;
+        const tools = toolRegistry.getToolSchemas();
+        
+        return {
+            success: true,
+            tools: tools,
+            count: tools.length
+        };
+    } catch (error) {
+        console.error('❌ 获取可用工具失败:', error);
+        return {
+            success: false,
+            error: error.message,
+            tools: []
+        };
+    }
+});
+
+ipcMain.handle('execute-mcp-tool', async (event, toolName, params) => {
+    try {
+        console.log(`🔧 执行工具: ${toolName}`, params);
+        
+        // 确保服务管理器已初始化
+        if (!serviceManager.isServiceManagerInitialized()) {
+            await serviceManager.initialize();
+        }
+        
+        const serverService = serviceManager.getService('server');
+        if (!serverService || !serverService.sseServerInstance || !serverService.sseServerInstance.toolRegistry) {
+            throw new Error('工具注册器未初始化');
+        }
+        
+        const toolRegistry = serverService.sseServerInstance.toolRegistry;
+        const startTime = Date.now();
+        
+        // 执行工具
+        const result = await toolRegistry.executeTool(toolName, params);
+        const duration = Date.now() - startTime;
+        
+        console.log(`✅ 工具 ${toolName} 执行成功，耗时: ${duration}ms`);
+        
+        return {
+            success: true,
+            tool: toolName,
+            params: params,
+            result: result,
+            duration: duration,
+            timestamp: new Date().toISOString()
+        };
+    } catch (error) {
+        console.error(`❌ 工具 ${toolName} 执行失败:`, error);
+        
+        return {
+            success: false,
+            tool: toolName,
+            params: params,
+            error: error.message,
+            stack: error.stack,
+            timestamp: new Date().toISOString()
+        };
+    }
 });
 
 // 设置管理 IPC 处理程序

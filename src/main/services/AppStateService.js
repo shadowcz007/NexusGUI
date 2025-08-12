@@ -17,7 +17,16 @@ class AppStateService {
                 serverName: 'nexusgui-sse-server',
                 version: '0.1.0'
             },
+            // 网络状态信息
+            networkStatus: {
+                connected: false,
+                activeSessions: 0,
+                lastActivity: null,
+                totalSessions: 0
+            },
             windows: new Map(), // 存储所有窗口
+            // 存储最近渲染的界面历史记录（最多保存10个）
+            renderHistory: [],
             isShuttingDown: false
         };
         
@@ -53,6 +62,16 @@ class AppStateService {
         const oldValue = { ...this.state.mcpServerInfo };
         this.state.mcpServerInfo = { ...this.state.mcpServerInfo, ...serverInfo };
         this.notifyListeners('mcpServerInfo', this.state.mcpServerInfo, oldValue);
+    }
+
+    /**
+     * 更新网络状态
+     * @param {object} networkStatus - 网络状态信息
+     */
+    updateNetworkStatus(networkStatus) {
+        const oldValue = { ...this.state.networkStatus };
+        this.state.networkStatus = { ...this.state.networkStatus, ...networkStatus };
+        this.notifyListeners('networkStatus', this.state.networkStatus, oldValue);
     }
 
     /**
@@ -141,12 +160,66 @@ class AppStateService {
     }
 
     /**
+     * 添加渲染历史记录
+     * @param {Object} guiData - GUI数据
+     */
+    addRenderHistory(guiData) {
+        try {
+            // 创建历史记录条目
+            const historyEntry = {
+                id: Date.now().toString(),
+                title: guiData.config?.title || '未命名界面',
+                timestamp: new Date().toISOString(),
+                config: {
+                    title: guiData.config?.title,
+                    width: guiData.config?.width,
+                    height: guiData.config?.height,
+                    // 不保存 html 内容以节省内存
+                    hasHtml: !!guiData.html,
+                    data: guiData.config?.data,
+                    callbacks: guiData.config?.callbacks
+                }
+            };
+
+            // 添加到历史记录数组开头
+            this.state.renderHistory.unshift(historyEntry);
+
+            // 限制历史记录数量为10个
+            if (this.state.renderHistory.length > 10) {
+                this.state.renderHistory = this.state.renderHistory.slice(0, 10);
+            }
+
+            this.logger.debug(`渲染历史记录已更新，当前数量: ${this.state.renderHistory.length}`);
+        } catch (error) {
+            this.logger.error('添加渲染历史记录失败', { error: error.message });
+        }
+    }
+
+    /**
+     * 获取渲染历史记录
+     * @returns {Array} 历史记录数组
+     */
+    getRenderHistory() {
+        return [...this.state.renderHistory];
+    }
+
+    /**
+     * 根据ID获取历史记录项
+     * @param {string} id - 历史记录ID
+     * @returns {Object|null} 历史记录项
+     */
+    getRenderHistoryItem(id) {
+        return this.state.renderHistory.find(item => item.id === id) || null;
+    }
+
+    /**
      * 清理状态
      */
     cleanup() {
         this.logger.info('清理应用状态服务...');
         this.state.isShuttingDown = true;
         this.state.windows.clear();
+        this.state.renderHistory = [];
         this.listeners.clear();
         this.logger.info('应用状态服务已清理');
     }

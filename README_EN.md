@@ -55,6 +55,9 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Integrated health check, debug info, session management tools
 - ✅ Support server settings and configuration management
 - ✅ Cross-platform support (macOS, Windows, Linux)
+- ✅ Add recent rendered interface history, support quick re-rendering
+- ✅ Provide "quick test" feature, render predefined test interfaces
+- ✅ Add network status indicator, display connection status with AI tools
 
 ### Direct HTML Rendering Mode 🆕
 - ✅ Support direct HTML string input for interface rendering
@@ -86,6 +89,11 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Support window size constraints (min/max width/height)
 - ✅ Support window behavior control (always on top, taskbar display, resizable, etc.)
 - ✅ Support window appearance settings (opacity, zoom factor, fullscreen mode)
+
+### Debug Functionality Enhancement
+- ✅ Provide unified debug console, centralize all logs and debug information
+- ✅ Add real-time monitoring panel, display server status, session count, resource usage, etc.
+- ✅ Provide API testing tool, facilitate developer testing of MCP tool calls
 
 ## 🆕 Refactored Architecture
 
@@ -286,7 +294,7 @@ After startup, the MCP server provides services at the following endpoints:
 }
 ```
 
-## HTML to Markdown Feature Usage
+### HTML to Markdown Feature Usage
 
 ### Automatic Conversion and Caching
 
@@ -311,6 +319,19 @@ When using the `render-gui` tool to render HTML interfaces, the system automatic
 // ⏰ Created time: 2025/8/3 14:51:39
 ```
 
+### Show File in File Manager
+
+```javascript
+// Use show-in-file-manager tool to show Markdown file in file manager
+{
+  "filePath": "/tmp/nexusgui-cache/interface-title-2025-08-03T14-51-39-788Z.md"
+}
+
+// Return result:
+// ✅ File shown in file manager:
+// 📁 /tmp/nexusgui-cache/interface-title-2025-08-03T14-51-39-788Z.md
+```
+
 ### Read Markdown Content
 
 ```javascript
@@ -320,7 +341,7 @@ When using the `render-gui` tool to render HTML interfaces, the system automatic
   "readMarkdown": true
 }
 
-// Returns complete Markdown text content
+// Returns complete Markdown text content (if content is long, shows preview of first 1000 characters)
 ```
 
 ### Get Both HTML and Markdown

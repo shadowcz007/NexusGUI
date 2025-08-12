@@ -20,14 +20,14 @@ class ServerService {
      * @returns {Promise<boolean>} 启动是否成功
      */
     async start(port = null) {
+        const serverPort = port || settingsManager.getSetting('server.port') || 3000;
+        
         try {
             // 如果服务器已运行，先停止
             if (this.sseServer) {
                 this.logger.warn('服务器已运行，先停止现有服务器');
                 await this.stop();
             }
-
-            const serverPort = port || settingsManager.getSetting('server.port') || 3000;
             
             this.logger.info(`正在启动 SSE MCP 服务器，端口: ${serverPort}`);
 
@@ -39,10 +39,27 @@ class ServerService {
                 startTime: new Date().toISOString()
             });
 
+            // 更新网络状态
+            this.appStateService.updateNetworkStatus({
+                connected: false,
+                activeSessions: 0,
+                lastActivity: null,
+                totalSessions: 0
+            });
+
             // 初始化服务器
             const { sseServer: createSSEServer } = await initializeSSEMCPServer();
-            this.sseServerInstance = createSSEServer(serverPort);
+            this.sseServerInstance = await createSSEServer(serverPort);
             this.sseServer = this.sseServerInstance.server; // 保持向后兼容
+            
+            // 确保工具注册器可访问
+            if (this.sseServerInstance.toolRegistry) {
+                this.logger.info('工具注册器已初始化', { 
+                    toolCount: this.sseServerInstance.toolRegistry.getStats().totalTools 
+                });
+            } else {
+                this.logger.warn('工具注册器未找到');
+            }
 
             // 更新状态为运行中
             this.appStateService.updateServerInfo({
@@ -55,6 +72,11 @@ class ServerService {
                     { name: '调试信息', path: '/debug/sessions', description: '查看活动会话' }
                 ],
                 error: null
+            });
+
+            // 更新网络状态为已连接
+            this.appStateService.updateNetworkStatus({
+                connected: true
             });
 
             this.logger.info('SSE MCP 服务器启动成功');
@@ -72,6 +94,11 @@ class ServerService {
                 error: error.message
             });
 
+            // 更新网络状态为未连接
+            this.appStateService.updateNetworkStatus({
+                connected: false
+            });
+
             throw error;
         }
     }
@@ -87,6 +114,12 @@ class ServerService {
                 
                 this.appStateService.updateServerInfo({
                     status: 'stopping'
+                });
+
+                // 更新网络状态为未连接
+                this.appStateService.updateNetworkStatus({
+                    connected: false,
+                    activeSessions: 0
                 });
 
                 await this.sseServerInstance.close();

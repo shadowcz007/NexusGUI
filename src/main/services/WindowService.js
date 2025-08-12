@@ -4,7 +4,8 @@ const path = require('path');
 const { generateSessionManagerHTML,
     generateDebugWindowHTML,
     generateMCPDashboardHTML,
-    generateServerSettingsHTML
+    generateServerSettingsHTML,
+    generateAPITestToolHTML
 } = require('../html/index.js');
 
 /**
@@ -35,7 +36,10 @@ class WindowService {
         this.logger.debug('开始创建窗口...', { config });
 
         // 检查是否复用现有窗口
-        const reuseWindow = config.reuseWindow || false;
+        // 优先使用配置中的 reuseWindow 设置，如果没有则检查自动窗口管理设置
+        const settingsManager = require('../../config/settings.js').settingsManager;
+        const autoWindowManagement = settingsManager.getSetting('ui.autoWindowManagement');
+        const reuseWindow = config.reuseWindow !== undefined ? config.reuseWindow : autoWindowManagement;
 
         if (reuseWindow) {
             const existingWindow = await this.tryReuseWindow(config);
@@ -62,7 +66,7 @@ class WindowService {
         // 监听窗口关闭事件
         win.on('closed', () => {
             this.appStateService.removeWindow(windowId);
-            
+
             // 如果窗口有结果解析器但尚未解析，则在窗口关闭时解析
             if (win.windowResultResolver) {
                 win.windowResultResolver({
@@ -179,6 +183,9 @@ class WindowService {
         console.log('📱 窗口配置:', windowConfig);
 
         const win = new BrowserWindow(windowConfig);
+
+        // 设置窗口的固定状态
+        win.isPinned = config.pinned || false;
 
         // 加载窗口内容
         await this.loadWindowContent(win, config);
@@ -410,6 +417,152 @@ class WindowService {
     }
 
     /**
+     * 显示调试控制台窗口
+     */
+    async showDebugConsole() {
+        try {
+            // 获取日志服务
+            const loggerService = this.logger;
+
+            // 获取最近的日志
+            const recentLogs = loggerService.getRecentLogs(200);
+
+            // 生成调试控制台 HTML
+            const { generateDebugConsoleHTML } = require('../html');
+            const debugConsoleHtml = generateDebugConsoleHTML(recentLogs);
+
+            const debugConsoleWindow = await this.createWindow({
+                id: 'debug-console',
+                title: 'NexusGUI - 调试控制台',
+                width: 900,
+                height: 700,
+                html: debugConsoleHtml,
+                alwaysOnTop: false,
+                reuseWindow: true
+            });
+
+            console.log('✅ 调试控制台窗口已显示');
+            return debugConsoleWindow;
+        } catch (error) {
+            console.error('❌ 显示调试控制台失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 显示实时监控面板窗口
+     */
+    async showMonitorDashboard() {
+        try {
+            // 获取服务
+            const appStateService = this.appStateService;
+            const serviceManager = require('../managers/ServiceManager').serviceManager;
+            const systemMonitorService = serviceManager.getService('systemMonitor');
+
+            // 获取监控数据
+            const monitorData = await systemMonitorService.getMonitorData();
+            const serverInfo = appStateService.getState('mcpServerInfo');
+            const networkStatus = appStateService.getState('networkStatus');
+
+            // 生成实时监控面板 HTML
+            const { generateMonitorDashboardHTML } = require('../html');
+            const monitorDashboardHtml = generateMonitorDashboardHTML(monitorData, serverInfo, networkStatus);
+
+            const monitorDashboardWindow = await this.createWindow({
+                id: 'monitor-dashboard',
+                title: 'NexusGUI - 实时监控面板',
+                width: 1000,
+                height: 800,
+                html: monitorDashboardHtml,
+                alwaysOnTop: false,
+                reuseWindow: true
+            });
+
+            console.log('✅ 实时监控面板窗口已显示');
+            return monitorDashboardWindow;
+        } catch (error) {
+            console.error('❌ 显示实时监控面板失败:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * 显示 API 测试工具窗口
+     */
+    async showAPITestTool() {
+        try {
+            // 获取服务器服务
+            const serverService = this.serverService;
+
+            // 获取工具注册器和工具列表
+            let tools = [];
+            let toolRegistry = null;
+
+            // 尝试多种方式获取工具注册器
+            if (serverService && serverService.sseServerInstance) {
+                // 方式1：从 sseServerInstance 获取
+                toolRegistry = serverService.sseServerInstance.toolRegistry;
+                this.logger.debug('尝试从 sseServerInstance 获取工具注册器', { hasToolRegistry: !!toolRegistry });
+            }
+
+            // 方式2：如果上面没有获取到，尝试从全局获取
+            if (!toolRegistry && global.toolRegistry) {
+                toolRegistry = global.toolRegistry;
+                this.logger.debug('从全局获取工具注册器', { hasToolRegistry: !!toolRegistry });
+            }
+
+            // 方式3：检查服务器状态并等待初始化
+            if (!toolRegistry) {
+                const serverInfo = this.appStateService.getState('mcpServerInfo');
+                if (serverInfo && serverInfo.status === 'running') {
+                    this.logger.warn('服务器正在运行但工具注册器未找到，尝试等待初始化...');
+                    // 等待一小段时间让工具注册器初始化
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                    // 再次尝试获取
+                    if (serverService && serverService.sseServerInstance) {
+                        toolRegistry = serverService.sseServerInstance.toolRegistry;
+                    }
+                }
+            }
+
+            if (toolRegistry) {
+                try {
+                    tools = toolRegistry.getToolSchemas();
+                    this.logger.info(`✅ 获取到 ${tools.length} 个工具`);
+                } catch (error) {
+                    this.logger.error('❌ 获取工具列表失败:', error);
+                    tools = [];
+                }
+            } else {
+                this.logger.warn('⚠️ 服务器或工具注册器未初始化，将显示空的工具列表');
+                // 即使没有工具，也显示界面，让用户知道当前状态
+                tools = [];
+            }
+
+            // 生成 API 测试工具 HTML
+            const { generateAPITestToolHTML } = require('../html');
+            const apiTestToolHtml = generateAPITestToolHTML(tools);
+
+            const apiTestToolWindow = await this.createWindow({
+                id: 'api-test-tool',
+                title: 'NexusGUI - API 测试工具',
+                width: 900,
+                height: 700,
+                html: apiTestToolHtml,
+                alwaysOnTop: false,
+                reuseWindow: true
+            });
+
+            console.log('✅ API 测试工具窗口已显示');
+            return apiTestToolWindow;
+        } catch (error) {
+            console.error('❌ 显示 API 测试工具失败:', error);
+            throw error;
+        }
+    }
+
+    /**
      * 显示会话管理窗口
      */
     async showSessionManager() {
@@ -484,11 +637,16 @@ class WindowService {
         console.log('🧹 关闭所有窗口...');
         const windows = this.appStateService.getAllWindows();
         windows.forEach((window, id) => {
-            if (!window.isDestroyed()) {
+            // 检查窗口是否被固定
+            const isPinned = window.isPinned || false;
+
+            if (!isPinned && !window.isDestroyed()) {
                 window.close();
+            } else if (isPinned) {
+                console.log(`📌 窗口 ${id} 已被固定，跳过关闭`);
             }
         });
-        console.log('✅ 所有窗口已关闭');
+        console.log('✅ 所有非固定窗口已关闭');
     }
 
     /**

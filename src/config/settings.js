@@ -32,7 +32,13 @@ const DEFAULT_SETTINGS = {
     ui: {
         theme: 'light',
         alwaysOnTop: false,
-        showInTray: true
+        showInTray: true,
+        autoWindowManagement: false // 是否启用自动窗口管理
+    },
+    // 启动模式设置
+    startup: {
+        mode: 'tray', // 'tray' 或 'window'
+        firstRun: true // 是否首次运行
     },
     name: packageJson.name,
     version: packageJson.version,

@@ -4,6 +4,7 @@ const { TrayService } = require('../services/TrayService');
 const { WindowService } = require('../services/WindowService');
 const { LoggerService } = require('../services/LoggerService');
 const { ErrorHandlerService } = require('../services/ErrorHandlerService');
+const { SystemMonitorService } = require('../services/SystemMonitorService');
 
 /**
  * 服务管理器
@@ -59,6 +60,10 @@ class ServiceManager {
             // 创建托盘服务
             const trayService = new TrayService(appStateService, windowService, this.logger, this.errorHandler);
             this.services.set('tray', trayService);
+
+            // 创建系统监控服务
+            const systemMonitorService = new SystemMonitorService();
+            this.services.set('systemMonitor', systemMonitorService);
 
             this.initialized = true;
             this.logger.info('服务管理器初始化完成', {}, 'SERVICE_MANAGER');
