@@ -422,33 +422,47 @@ class TrayService {
                 return;
             }
 
-            // 检查全局缓存中是否有完整的HTML内容
-            // 如果全局缓存中的项匹配，则使用它
-            if (global.renderGuiCache &&
-                global.renderGuiCache.config.title === historyItem.config.title &&
-                global.renderGuiCache.timestamp === historyItem.timestamp) {
-                // 使用缓存的HTML内容
+            // 检查历史记录中是否有HTML内容
+            if (historyItem.html && historyItem.hasHtml) {
+                // 直接使用历史记录中的HTML内容
                 const windowConfig = {
                     type: 'dynamic',
-                    title: global.renderGuiCache.config.title,
-                    width: global.renderGuiCache.config.width,
-                    height: global.renderGuiCache.config.height,
-                    html: global.renderGuiCache.html,
-                    data: global.renderGuiCache.config.data,
-                    callbacks: global.renderGuiCache.config.callbacks,
+                    title: historyItem.config.title,
+                    width: historyItem.config.width,
+                    height: historyItem.config.height,
+                    html: historyItem.html,
+                    callbacks: historyItem.config.callbacks,
                     reuseWindow: true,
                     waitForResult: false
                 };
 
                 await global.createWindow(windowConfig);
-                this.logger.info(`已从缓存渲染历史界面: ${historyItem.config.title}`);
+                this.logger.info(`已从历史记录渲染界面: ${historyItem.config.title}`);
             } else {
-                // 没有缓存的HTML内容，提示用户
-                this.showNotification(
-                    '历史记录',
-                    `无法重新渲染 "${historyItem.config.title}"，HTML内容已丢失。请重新使用render-gui工具渲染界面。`
-                );
-                this.logger.warn(`历史记录中没有HTML内容: ${historyItem.config.title}`);
+                // 尝试从全局缓存获取（向后兼容）
+                if (global.renderGuiCache &&
+                    global.renderGuiCache.config.title === historyItem.config.title) {
+                    const windowConfig = {
+                        type: 'dynamic',
+                        title: global.renderGuiCache.config.title,
+                        width: global.renderGuiCache.config.width,
+                        height: global.renderGuiCache.config.height,
+                        html: global.renderGuiCache.html,
+                        callbacks: global.renderGuiCache.config.callbacks,
+                        reuseWindow: true,
+                        waitForResult: false
+                    };
+
+                    await global.createWindow(windowConfig);
+                    this.logger.info(`已从缓存渲染历史界面: ${historyItem.config.title}`);
+                } else {
+                    // 没有HTML内容，提示用户
+                    this.showNotification(
+                        '历史记录',
+                        `无法重新渲染 "${historyItem.config.title}"，HTML内容已丢失。请重新使用render-gui工具渲染界面。`
+                    );
+                    this.logger.warn(`历史记录中没有HTML内容: ${historyItem.config.title}`);
+                }
             }
         } catch (error) {
             this.logger.error('从历史记录渲染界面失败', { error: error.message });

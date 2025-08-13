@@ -5,10 +5,10 @@ const MarkdownUtils = require('../utils/markdownUtils');
  * 获取GUI缓存工具
  * 用于获取保存的最新传入的HTML内容
  */
-class GetGUITool extends BaseToolHandler {
+class GetContextTool extends BaseToolHandler {
     constructor() {
         super(
-            'get-gui',
+            'get-context',
             [
                 '获取保存的最新传入的HTML内容和Markdown文档。',
                 '返回render-gui工具缓存的HTML内容、Markdown文档和相关配置信息。',
@@ -261,7 +261,6 @@ class GetGUITool extends BaseToolHandler {
                     `📋 标题: ${cachedData.config.title}`,
                     `📱 窗口尺寸: ${cachedData.config.width}x${cachedData.config.height}`,
                     `⏰ 缓存时间: ${new Date(cachedData.timestamp).toLocaleString('zh-CN')}`,
-                    `📊 数据对象: ${JSON.stringify(cachedData.config.data)}`,
                     `🔧 回调函数: ${Object.keys(cachedData.config.callbacks || {}).join(', ') || '无'}`
                 ];
 
@@ -309,8 +308,7 @@ class GetGUITool extends BaseToolHandler {
                         height: cachedData.config.height
                     },
                     htmlLength: cachedData.html.length,
-                    cacheTime: cachedData.timestamp,
-                    data: cachedData.config.data,
+                    cacheTime: cachedData.timestamp, 
                     callbacks: Object.keys(cachedData.config.callbacks || {}),
                     html: showHtml ? cachedData.html : undefined,
                     markdown: readMarkdown && markdownContent ? {
@@ -365,4 +363,4 @@ class GetGUITool extends BaseToolHandler {
     }
 }
 
-module.exports = GetGUITool;
+module.exports = GetContextTool;

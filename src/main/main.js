@@ -170,7 +170,6 @@ async function showAppWindow() {
                 width: cachedHtml.config.width,
                 height: cachedHtml.config.height,
                 html: cachedHtml.html,
-                data: cachedHtml.config.data,
                 callbacks: cachedHtml.config.callbacks,
                 reuseWindow: true,
                 waitForResult: false

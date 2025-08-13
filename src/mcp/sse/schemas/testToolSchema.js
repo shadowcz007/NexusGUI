@@ -27,10 +27,10 @@ module.exports = {
             }
         },
         {
-            title: '测试 get-gui 工具',
-            description: '测试 get-gui 工具的调用',
+            title: '测试 get-context 工具',
+            description: '测试 get-context 工具的调用',
             value: {
-                tool: 'get-gui',
+                tool: 'get-context',
                 params: {
                     format: 'summary',
                     returnType: 'both'

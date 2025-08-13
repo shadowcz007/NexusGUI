@@ -106,8 +106,7 @@ class RenderGUITool extends BaseToolHandler {
                 opacity: config.opacity,
                 fullscreen: config.fullscreen,
                 zoomFactor: config.zoomFactor,
-                html: processedHtml,
-                data: config.data,
+                html: processedHtml, 
                 callbacks: config.callbacks,
                 reuseWindow: config.reuseWindow,
                 waitForResult: config.waitForResult
@@ -169,7 +168,7 @@ class RenderGUITool extends BaseToolHandler {
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局${markdownInfo}${markdownPath ? '\n🔍 使用 "get-gui" 工具并设置 "readMarkdown": true 参数查看 Markdown 内容预览' : ''}`
+                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局${markdownInfo}${markdownPath ? '\n🔍 使用 "get-context" 工具并设置 "readMarkdown": true 参数查看 Markdown 内容预览' : ''}`
                     }],
                     markdownPath: markdownPath
                 };
@@ -207,8 +206,7 @@ class RenderGUITool extends BaseToolHandler {
                 config: {
                     title: config.title,
                     width: config.width,
-                    height: config.height,
-                    data: config.data,
+                    height: config.height, 
                     callbacks: config.callbacks
                 },
                 timestamp: new Date().toISOString()
@@ -237,8 +235,7 @@ class RenderGUITool extends BaseToolHandler {
                 config: {
                     title: config.title,
                     width: config.width,
-                    height: config.height,
-                    data: config.data,
+                    height: config.height, 
                     callbacks: config.callbacks
                 },
                 timestamp: new Date().toISOString()
@@ -337,8 +334,7 @@ class RenderGUITool extends BaseToolHandler {
             title: cachedData.config.title,
             width: cachedData.config.width,
             height: cachedData.config.height,
-            html: cachedData.html,
-            data: cachedData.config.data,
+            html: cachedData.html, 
             callbacks: cachedData.config.callbacks,
             reuseWindow: true,
             waitForResult: false

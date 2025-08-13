@@ -35,6 +35,10 @@ const DEFAULT_SETTINGS = {
         showInTray: true,
         autoWindowManagement: false // 是否启用自动窗口管理
     },
+    history: {
+        saveHtmlContent: true, // 是否在历史记录中保存HTML内容
+        maxHistoryItems: 10    // 最大历史记录数量
+    },
     // 启动模式设置
     startup: {
         mode: 'tray', // 'tray' 或 'window'

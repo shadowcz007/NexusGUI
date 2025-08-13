@@ -7,7 +7,7 @@ const path = require('path');
 // 导入重构后的工具系统
 const ToolRegistry = require('./tools/ToolRegistry');
 const RenderGUITool = require('./tools/RenderGUITool');
-const GetGUITool = require('./tools/GetGUITool');
+const GetContextTool = require('./tools/GetContextTool');
 const InjectJSTool = require('./tools/InjectJSTool');
 const NotificationTool = require('./tools/NotificationTool');
 const ShowInFileManagerTool = require('./tools/ShowInFileManagerTool');
@@ -53,7 +53,7 @@ async function initializeToolRegistry() {
          
         // 注册所有工具
         globalToolRegistry.register(new RenderGUITool());
-        globalToolRegistry.register(new GetGUITool());
+        globalToolRegistry.register(new GetContextTool());
         globalToolRegistry.register(new InjectJSTool());
         // globalToolRegistry.register(new ShowInFileManagerTool());
         // globalToolRegistry.register(new RenderHistoryTool());

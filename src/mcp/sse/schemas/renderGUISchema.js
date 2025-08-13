@@ -131,27 +131,15 @@ const renderGUISchema = {
                 '复杂 HTML 字符串': '<div class="container"><form><label>姓名: <input type="text" name="name"></label><button type="submit">提交</button></form></div>'
             }
         },
-        data: {
-            type: 'object',
-            description: '界面初始数据，用于预填充表单字段和组件状态。键名应与组件的 name 属性对应',
-            additionalProperties: true,
-            examples: {
-                'userName': '张三',
-                'userAge': 25,
-                'isActive': true,
-                'selectedOption': 'option1'
-            },
-            default: {}
-        },
         callbacks: {
             type: 'object',
             description: '事件回调函数映射，键为回调函数名称，值为 JavaScript 代码字符串。回调函数接收参数：data(全局数据)、sendResult(发送结果函数)、getFormData(获取表单数据函数)',
             additionalProperties: {
                 type: 'string',
-                description: 'JavaScript 代码字符串，可以访问 data、sendResult、getFormData 参数'
+                description: 'JavaScript 代码字符串，可以访问 sendResult 参数'
             },
             examples: {
-                'handleSubmit': 'sendResult({ action: "submit", formData: getFormData() });',
+                'handleSubmit': 'sendResult({ action: "submit"  });',
                 'handleCancel': 'sendResult({ action: "cancel" });',
                 'processData': 'const result = data.userInput * 2; sendResult({ processed: result });'
             },

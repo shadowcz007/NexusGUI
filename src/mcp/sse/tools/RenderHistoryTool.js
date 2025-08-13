@@ -140,20 +140,16 @@ class RenderHistoryTool extends BaseToolHandler {
                 };
             }
 
-            // 检查全局缓存中是否有完整的HTML内容
-            // 如果全局缓存中的项匹配，则使用它
-            if (global.renderGuiCache && 
-                global.renderGuiCache.config.title === historyItem.config.title &&
-                global.renderGuiCache.timestamp === historyItem.timestamp) {
-                // 使用缓存的HTML内容
+            // 检查历史记录中是否有HTML内容
+            if (historyItem.html && historyItem.hasHtml) {
+                // 直接使用历史记录中的HTML内容
                 const windowConfig = {
                     type: 'dynamic',
-                    title: global.renderGuiCache.config.title,
-                    width: global.renderGuiCache.config.width,
-                    height: global.renderGuiCache.config.height,
-                    html: global.renderGuiCache.html,
-                    data: global.renderGuiCache.config.data,
-                    callbacks: global.renderGuiCache.config.callbacks,
+                    title: historyItem.config.title,
+                    width: historyItem.config.width,
+                    height: historyItem.config.height,
+                    html: historyItem.html,
+                    callbacks: historyItem.config.callbacks,
                     reuseWindow: true,
                     waitForResult: false
                 };
@@ -163,17 +159,41 @@ class RenderHistoryTool extends BaseToolHandler {
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 已重新渲染界面\n📋 标题: ${historyItem.config.title}\n📱 尺寸: ${historyItem.config.width}x${historyItem.config.height}\n🔄 已复用现有窗口`
+                        text: `✅ 已从历史记录重新渲染界面\n📋 标题: ${historyItem.config.title}\n📱 尺寸: ${historyItem.config.width}x${historyItem.config.height}\n🔄 已复用现有窗口`
                     }]
                 };
             } else {
-                // 没有缓存的HTML内容，提示用户
-                return {
-                    content: [{
-                        type: 'text',
-                        text: `❌ 无法重新渲染 "${historyItem.config.title}"\n💡 HTML内容已丢失，请重新使用 render-gui 工具渲染界面`
-                    }]
-                };
+                // 尝试从全局缓存获取（向后兼容）
+                if (global.renderGuiCache && 
+                    global.renderGuiCache.config.title === historyItem.config.title) {
+                    const windowConfig = {
+                        type: 'dynamic',
+                        title: global.renderGuiCache.config.title,
+                        width: global.renderGuiCache.config.width,
+                        height: global.renderGuiCache.config.height,
+                        html: global.renderGuiCache.html,
+                        callbacks: global.renderGuiCache.config.callbacks,
+                        reuseWindow: true,
+                        waitForResult: false
+                    };
+                    
+                    await global.createWindow(windowConfig);
+                    
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: `✅ 已从缓存重新渲染界面\n📋 标题: ${historyItem.config.title}\n📱 尺寸: ${historyItem.config.width}x${historyItem.config.height}\n🔄 已复用现有窗口`
+                        }]
+                    };
+                } else {
+                    // 没有HTML内容，提示用户
+                    return {
+                        content: [{
+                            type: 'text',
+                            text: `❌ 无法重新渲染 "${historyItem.config.title}"\n💡 HTML内容已丢失，请重新使用 render-gui 工具渲染界面`
+                        }]
+                    };
+                }
             }
         } catch (error) {
             throw new Error(`从历史记录渲染界面失败: ${error.message}`);

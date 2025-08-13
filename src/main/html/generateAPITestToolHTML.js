@@ -544,7 +544,7 @@ function generateAPITestToolHTML(tools = []) {
                     height: 600,
                     html: '<div style="padding: 20px;"><h1>测试界面</h1><p>这是一个测试界面</p></div>'
                 },
-                'get-gui': {
+                'get-context': {
                     format: 'summary',
                     returnType: 'both'
                 },

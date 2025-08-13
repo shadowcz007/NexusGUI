@@ -165,6 +165,10 @@ class AppStateService {
      */
     addRenderHistory(guiData) {
         try {
+            // 获取历史记录配置
+            const saveHtmlContent = global.settingsManager?.getSetting('history.saveHtmlContent') !== false;
+            const maxHistoryItems = global.settingsManager?.getSetting('history.maxHistoryItems') || 10;
+            
             // 创建历史记录条目
             const historyEntry = {
                 id: Date.now().toString(),
@@ -174,19 +178,23 @@ class AppStateService {
                     title: guiData.config?.title,
                     width: guiData.config?.width,
                     height: guiData.config?.height,
-                    // 不保存 html 内容以节省内存
-                    hasHtml: !!guiData.html,
                     data: guiData.config?.data,
                     callbacks: guiData.config?.callbacks
-                }
+                },
+                hasHtml: !!guiData.html
             };
+
+            // 根据配置决定是否保存HTML内容
+            if (saveHtmlContent && guiData.html) {
+                historyEntry.html = guiData.html;
+            }
 
             // 添加到历史记录数组开头
             this.state.renderHistory.unshift(historyEntry);
 
-            // 限制历史记录数量为10个
-            if (this.state.renderHistory.length > 10) {
-                this.state.renderHistory = this.state.renderHistory.slice(0, 10);
+            // 限制历史记录数量
+            if (this.state.renderHistory.length > maxHistoryItems) {
+                this.state.renderHistory = this.state.renderHistory.slice(0, maxHistoryItems);
             }
 
             this.logger.debug(`渲染历史记录已更新，当前数量: ${this.state.renderHistory.length}`);
