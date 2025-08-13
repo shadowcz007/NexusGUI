@@ -34,7 +34,8 @@ npm run start-with-window
   "title": "我的第一个界面",
   "width": 600,
   "height": 400,
-  "html": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>这是我的第一个动态界面</p></div>"
+  "type": "html",
+  "content": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>这是我的第一个动态界面</p></div>"
 }
 ```
 
@@ -276,7 +277,8 @@ npm run build
   "title": "HTML 界面示例",
   "width": 800,
   "height": 600,
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>Hello World</h1>
       <p>这是一个 HTML 界面</p>
@@ -396,7 +398,8 @@ npm run build
   "width": 400,
   "height": 300,
   "waitForResult": true,  // 同步等待结果
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; text-align: center;">
       <h2>确认操作</h2>
       <p>您确定要执行此操作吗？</p>
@@ -417,7 +420,8 @@ npm run build
 {
   "title": "复用窗口示例",
   "reuseWindow": true,  // 复用现有窗口
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>窗口已更新</h1>
       <p>这个内容替换了之前的窗口内容</p>
@@ -437,7 +441,8 @@ npm run build
     "userName": "张三",
     "userAge": 25
   },
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <h1 style="color: #333;">用户信息表单</h1>
       
