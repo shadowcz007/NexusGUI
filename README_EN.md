@@ -34,7 +34,8 @@ After startup, the application will launch an MCP server at `http://localhost:30
   "title": "My First Interface",
   "width": 600,
   "height": 400,
-  "html": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>This is my first dynamic interface</p></div>"
+  "type": "html",
+  "content": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>This is my first dynamic interface</p></div>"
 }
 ```
 
@@ -284,7 +285,8 @@ After startup, the MCP server provides services at the following endpoints:
   "title": "HTML Interface Example",
   "width": 800,
   "height": 600,
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>Hello World</h1>
       <p>This is an HTML interface</p>
@@ -404,7 +406,8 @@ System Temp Directory/nexusgui-cache/
   "width": 400,
   "height": 300,
   "waitForResult": true,  // Synchronously wait for result
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; text-align: center;">
       <h2>Confirm Operation</h2>
       <p>Are you sure you want to perform this operation?</p>
@@ -425,7 +428,8 @@ System Temp Directory/nexusgui-cache/
 {
   "title": "Window Reuse Example",
   "reuseWindow": true,  // Reuse existing window
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>Window Updated</h1>
       <p>This content replaced the previous window content</p>
@@ -445,7 +449,8 @@ System Temp Directory/nexusgui-cache/
     "userName": "John Doe",
     "userAge": 25
   },
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <h1 style="color: #333;">User Information Form</h1>
       
