@@ -125,83 +125,8 @@ class TrayService {
         // 获取渲染历史记录
         const renderHistory = this.appStateService.getRenderHistory();
 
-        // 构建历史记录菜单项
-        const historyMenuItems = [];
-        if (renderHistory.length > 0) {
-            historyMenuItems.push({ type: 'separator' });
-            historyMenuItems.push({
-                label: '📜 最近渲染的界面',
-                type: 'normal',
-                enabled: false
-            });
-
-            renderHistory.slice(0, 5).forEach((item, index) => {
-                historyMenuItems.push({
-                    label: `${index + 1}. ${item.title}`,
-                    type: 'normal',
-                    click: () => this.renderFromHistory(item.id)
-                });
-            });
-        }
-
-        // 构建快速测试菜单项
-        const quickTestMenuItems = [
-            { type: 'separator' },
-            {
-                label: '🧪 快速测试',
-                type: 'normal',
-                enabled: false
-            },
-            {
-                label: '基础测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('basic')
-            },
-            {
-                label: '表单测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('form')
-            },
-            {
-                label: '仪表板测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('dashboard')
-            }
-        ];
-
-        const contextMenu = Menu.buildFromTemplate([
-            {
-                label: 'NexusGUI MCP 服务器',
-                type: 'normal',
-                enabled: false
-            },
-            { type: 'separator' },
-            {
-                label: `状态: ${serverStatus}`,
-                type: 'normal',
-                enabled: false
-            },
-            {
-                label: `端口: ${serverPort}`,
-                type: 'normal',
-                enabled: false
-            },
-            {
-                label: `连接: ${connectionStatus}`,
-                type: 'normal',
-                enabled: false
-            },
-            {
-                label: `活动会话: ${activeSessions}`,
-                type: 'normal',
-                enabled: false
-            },
-            { type: 'separator' },
-            {
-                label: '📊 MCP 服务器控制台',
-                type: 'normal',
-                click: () => this.windowService.showMCPConsole()
-            },
+        // 构建工具窗口子菜单
+        const toolsSubmenu = Menu.buildFromTemplate([
             {
                 label: '🔧 调试信息窗口',
                 type: 'normal',
@@ -237,10 +162,48 @@ class TrayService {
                 type: 'normal',
                 enabled: serverInfo.status === 'running',
                 click: () => this.windowService.showAPITestTool()
+            }
+        ]);
+
+        // 构建历史记录子菜单
+        const historySubmenu = [];
+        if (renderHistory.length > 0) {
+            renderHistory.slice(0, 8).forEach((item, index) => {
+                historySubmenu.push({
+                    label: `${index + 1}. ${item.title}`,
+                    type: 'normal',
+                    click: () => this.renderFromHistory(item.id)
+                });
+            });
+        } else {
+            historySubmenu.push({
+                label: '暂无历史记录',
+                type: 'normal',
+                enabled: false
+            });
+        }
+
+        // 构建快速测试子菜单
+        const quickTestSubmenu = Menu.buildFromTemplate([
+            {
+                label: '基础测试界面',
+                type: 'normal',
+                click: () => this.runQuickTest('basic')
             },
-            ...historyMenuItems,
-            ...quickTestMenuItems,
-            { type: 'separator' },
+            {
+                label: '表单测试界面',
+                type: 'normal',
+                click: () => this.runQuickTest('form')
+            },
+            {
+                label: '仪表板测试界面',
+                type: 'normal',
+                click: () => this.runQuickTest('dashboard')
+            }
+        ]);
+
+        // 构建设置子菜单
+        const settingsSubmenu = Menu.buildFromTemplate([
             {
                 label: startupMode === 'tray' ? '🖥️ 切换到主窗口模式' : '📌 切换到托盘模式',
                 type: 'normal',
@@ -251,19 +214,61 @@ class TrayService {
                 type: 'normal',
                 click: () => this.toggleAutoWindowManagement()
             },
+            { type: 'separator' },
+            {
+                label: '⚙️ 服务器设置',
+                type: 'normal',
+                click: () => this.windowService.showServerSettings()
+            }
+        ]);
+
+        const contextMenu = Menu.buildFromTemplate([
+            {
+                label: `NexusGUI ${serverStatus}`,
+                type: 'normal',
+                enabled: false
+            },
+            {
+                label: `端口: ${serverPort} | 会话: ${activeSessions} | ${connectionStatus}`,
+                type: 'normal',
+                enabled: false
+            },
+            { type: 'separator' },
+            {
+                label: '📊 MCP 控制台',
+                type: 'normal',
+                click: () => this.windowService.showMCPConsole()
+            },
+            {
+                label: '🛠️ 工具窗口',
+                type: 'submenu',
+                submenu: toolsSubmenu,
+                enabled: serverInfo.status === 'running'
+            },
+            {
+                label: '📜 历史记录',
+                type: 'submenu',
+                submenu: Menu.buildFromTemplate(historySubmenu)
+            },
+            {
+                label: '🧪 快速测试',
+                type: 'submenu',
+                submenu: quickTestSubmenu
+            },
+            { type: 'separator' },
             {
                 label: '🔄 刷新状态',
                 type: 'normal',
                 click: () => this.refreshStatus()
             },
             {
-                label: '⚙️ 服务器设置',
-                type: 'normal',
-                click: () => this.windowService.showServerSettings()
+                label: '⚙️ 设置',
+                type: 'submenu',
+                submenu: settingsSubmenu
             },
             { type: 'separator' },
             {
-                label: '🧹 关闭所有动态窗口',
+                label: '🧹 关闭所有窗口',
                 type: 'normal',
                 click: () => this.closeAllDynamicWindows()
             },
