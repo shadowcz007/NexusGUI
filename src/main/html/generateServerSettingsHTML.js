@@ -233,6 +233,13 @@ function generateServerSettingsHTML(currentSettings) {
                     <div class="toggle ${currentSettings.ui.showInTray ? 'active' : ''}" id="show-in-tray" onclick="toggleSetting(this)"></div>
                 </div>
             </div>
+            <div class="setting-item">
+                <span class="setting-label">托盘菜单标题长度</span>
+                <div class="setting-control">
+                    <input type="number" id="tray-title-length" value="${currentSettings.ui.trayMenuTitleMaxLength || 30}" min="15" max="60" step="1">
+                    <span class="setting-hint">字符数 (15-60)</span>
+                </div>
+            </div>
         </div>
         
         <div class="actions">
@@ -287,7 +294,8 @@ function generateServerSettingsHTML(currentSettings) {
                     'logging.enableVerbose': document.getElementById('enable-verbose').classList.contains('active'),
                     'logging.level': document.getElementById('log-level').value,
                     'ui.alwaysOnTop': document.getElementById('always-on-top').classList.contains('active'),
-                    'ui.showInTray': document.getElementById('show-in-tray').classList.contains('active')
+                    'ui.showInTray': document.getElementById('show-in-tray').classList.contains('active'),
+                    'ui.trayMenuTitleMaxLength': parseInt(document.getElementById('tray-title-length').value)
                 };
                 
                 console.log('保存设置:', settings);

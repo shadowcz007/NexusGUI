@@ -33,7 +33,8 @@ const DEFAULT_SETTINGS = {
         theme: 'light',
         alwaysOnTop: false,
         showInTray: true,
-        autoWindowManagement: false // 是否启用自动窗口管理
+        autoWindowManagement: false, // 是否启用自动窗口管理
+        trayMenuTitleMaxLength: 30 // 托盘菜单中标题的最大显示长度
     },
     history: {
         saveHtmlContent: true, // 是否在历史记录中保存HTML内容
@@ -260,6 +261,12 @@ class SettingsManager {
         const logLevel = validationSettings.logging?.level;
         if (!logLevel || !validLogLevels.includes(logLevel)) {
             errors.push(`日志级别必须是: ${validLogLevels.join(', ')} 之一，当前值: ${logLevel}`);
+        }
+
+        // 验证托盘菜单标题最大长度
+        const trayTitleMaxLength = validationSettings.ui?.trayMenuTitleMaxLength;
+        if (trayTitleMaxLength !== undefined && (trayTitleMaxLength < 15 || trayTitleMaxLength > 60)) {
+            errors.push(`托盘菜单标题最大长度必须在15-60之间，当前值: ${trayTitleMaxLength}`);
         }
 
         console.log('🔍 验证结果:', errors.length === 0 ? '通过' : '失败');

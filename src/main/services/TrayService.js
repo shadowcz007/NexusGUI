@@ -170,7 +170,7 @@ class TrayService {
         if (renderHistory.length > 0) {
             renderHistory.slice(0, 8).forEach((item, index) => {
                 historySubmenu.push({
-                    label: `${index + 1}. ${item.title}`,
+                    label: `${index + 1}. ${this.truncateTitle(item.title)}`,
                     type: 'normal',
                     click: () => this.renderFromHistory(item.id)
                 });
@@ -472,6 +472,35 @@ class TrayService {
         } catch (error) {
             this.logger.error('从历史记录渲染界面失败', { error: error.message });
         }
+    }
+
+    /**
+     * 截断标题以适应托盘菜单显示
+     * @param {string} title - 原始标题
+     * @param {number} maxLength - 最大长度，如果不提供则从设置中读取
+     * @returns {string} 截断后的标题
+     */
+    truncateTitle(title, maxLength) {
+        if (!title || typeof title !== 'string') {
+            return '未命名界面';
+        }
+
+        // 从设置中获取最大长度，默认30个字符
+        if (maxLength === undefined) {
+            maxLength = settingsManager.getSetting('ui.trayMenuTitleMaxLength') || 30;
+        }
+
+        // 如果标题长度小于等于最大长度，直接返回
+        if (title.length <= maxLength) {
+            return title;
+        }
+
+        // 计算前后保留的字符数
+        const frontLength = Math.floor((maxLength - 3) / 2);
+        const backLength = maxLength - 3 - frontLength;
+
+        // 截断并添加省略号
+        return `${title.substring(0, frontLength)}...${title.substring(title.length - backLength)}`;
     }
 
     /**
