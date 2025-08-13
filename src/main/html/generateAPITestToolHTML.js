@@ -523,13 +523,64 @@ function generateAPITestToolHTML(tools = []) {
                 return;
             }
             
-            // 根据选中的工具加载示例参数
-            const exampleParams = getExampleParams(selectedTool);
-            if (exampleParams) {
-                document.getElementById('toolParams').value = JSON.stringify(exampleParams, null, 2);
+            // 如果是 render-gui 工具，显示多种示例选择
+            if (selectedTool === 'render-gui') {
+                 const exampleParams = getRenderGuiExample('html');
+                if (exampleParams) {
+                    document.getElementById('toolParams').value = JSON.stringify(exampleParams, null, 2);
+                }
+            } else {
+                // 其他工具使用默认示例
+                const exampleParams = getExampleParams(selectedTool);
+                if (exampleParams) {
+                    document.getElementById('toolParams').value = JSON.stringify(exampleParams, null, 2);
+                }
             }
         }
         
+        // 获取 render-gui 工具的不同示例
+        function getRenderGuiExample(exampleType) {
+            const examples = {
+                '1': {
+                    title: 'HTML 字符串示例',
+                    width: 600,
+                    height: 400,
+                    type: 'html',
+                    content: \`<div style="padding: 20px; font-family: Arial, sans-serif;"><h1 style="color: #2c3e50;">HTML 字符串渲染</h1><p>这是使用 HTML 字符串创建的界面</p><button onclick="alert(\\'Hello from HTML!\\')">点击我</button></div>\`
+                },
+                '2': {
+                    title: 'HTML 文件示例',
+                    width: 800,
+                    height: 600,
+                    type: 'url',
+                    content: './src/renderer/index.html'
+                },
+                '3': {
+                    title: 'Markdown 内容示例',
+                    width: 700,
+                    height: 500,
+                    type: 'markdown',
+                    content: '# Markdown 渲染示例\\n\\n这是一个使用 **Markdown** 语法的界面示例。\\n\\n## 功能特点\\n\\n- 支持标准 Markdown 语法\\n- 自动转换为 HTML\\n- 支持代码块、表格、链接等\\n\\n\`\`\`javascript\\nconsole.log("Hello, Markdown!");\\n\`\`\`\\n\\n> 这是一个引用块示例这是一个引用块示例'
+                },
+                '4': {
+                    title: '图片显示示例',
+                    width: 600,
+                    height: 400,
+                    type: 'image',
+                    content: './assets/tray-icon.png'
+                },
+                '5': {
+                    title: '网络 URL 示例',
+                    width: 900,
+                    height: 700,
+                    type: 'url',
+                    content: 'https://www.example.com'
+                }
+            };
+            
+            return examples[exampleType] || examples['1'];
+        }
+
         // 获取示例参数
         function getExampleParams(toolName) {
             // 验证工具名称，防止原型污染攻击
@@ -542,7 +593,8 @@ function generateAPITestToolHTML(tools = []) {
                     title: '测试界面',
                     width: 800,
                     height: 600,
-                    html: '<div style="padding: 20px;"><h1>测试界面</h1><p>这是一个测试界面</p></div>'
+                    type: 'html',
+                    content: \`<div style="padding: 20px;"><h1>测试界面</h1><p>这是一个测试界面</p><button onclick="alert(\'Hello from HTML!\')">点击我</button></div>\`
                 },
                 'get-context': {
                     format: 'summary',

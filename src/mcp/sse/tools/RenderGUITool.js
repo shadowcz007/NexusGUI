@@ -47,9 +47,18 @@ class RenderGUITool extends BaseToolHandler {
         // 调用基类验证
         super.validate(args);
 
-        // 验证HTML输入
-        if (!args.html) {
-            throw new Error('缺少 html 参数，请提供 HTML 文件路径或 HTML 字符串');
+        // 验证内容输入
+        const validTypes = ['html', 'url', 'markdown', 'image'];
+        if (!validTypes.includes(args.type)) {
+            throw new Error(`无效的 type 值: ${args.type}，必须是 ${validTypes.join(', ')} 之一`);
+        }
+        if (!args.content || typeof args.content !== 'string') {
+            throw new Error('content 参数不能为空且必须是字符串');
+        }
+        
+        // 根据类型进行基本验证
+        if (args.type === 'html' && !HtmlUtils.isHtmlString(args.content)) {
+            throw new Error('当 type=html 时，content 必须包含有效的 HTML 标签');
         }
 
         // 验证窗口配置
@@ -70,10 +79,12 @@ class RenderGUITool extends BaseToolHandler {
             
             this.log('info', `渲染动态 GUI: ${config.title}${config.waitForResult ? ' (同步等待结果)' : ''}`);
 
-            // 处理 HTML 输入
-            const htmlResult = this.processHtmlInput(config.html);
+            // 处理内容输入
+            const htmlResult = this.processContentInput(config.type, config.content);
             const processedHtml = htmlResult.content;
-            const inputType = htmlResult.type;
+            const inputType = `${htmlResult.type}${htmlResult.subType ? `(${htmlResult.subType})` : ''}`;
+            
+            this.log('info', `处理内容: type=${config.type}, inputType=${inputType}`);
 
             // 缓存HTML内容到全局
             this.cacheHtml(processedHtml, config);
@@ -152,7 +163,7 @@ class RenderGUITool extends BaseToolHandler {
                 // 构建窗口属性信息
                 const windowProps = this.buildWindowPropsInfo(config);
                 const reuseInfo = config.reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
-                const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
+                const inputInfo = this.getInputTypeInfo(inputType, config);
                 
                 // 获取Markdown文件路径（如果已生成）
                 let markdownInfo = '';
@@ -351,15 +362,51 @@ class RenderGUITool extends BaseToolHandler {
     }
 
     /**
-     * 处理HTML输入
-     * @param {string} htmlInput - HTML输入
+     * 处理内容输入（新格式）
+     * @param {string} type - 内容类型
+     * @param {string} content - 内容数据
      * @returns {Object} 处理结果
      */
-    processHtmlInput(htmlInput) {
+    processContentInput(type, content) {
         try {
-            return HtmlUtils.processHtmlInput(htmlInput);
+            return HtmlUtils.processContentInput(type, content);
         } catch (error) {
-            throw new Error(`HTML 输入处理失败: ${error.message}`);
+            throw new Error(`内容输入处理失败: ${error.message}`);
+        }
+    }
+
+
+
+    /**
+     * 获取输入类型信息字符串
+     * @param {string} inputType - 输入类型
+     * @param {Object} config - 配置对象
+     * @returns {string} 输入类型信息
+     */
+    getInputTypeInfo(inputType, config) {
+        switch (config.type) {
+            case 'html':
+                return '\n📝 内容来源: HTML 字符串';
+            case 'url':
+                if (inputType.includes('network')) {
+                    return '\n🌐 内容来源: 网络 URL';
+                } else if (inputType.includes('html-file')) {
+                    return '\n📁 内容来源: HTML 文件';
+                } else if (inputType.includes('markdown-file')) {
+                    return '\n📄 内容来源: Markdown 文件';
+                } else {
+                    return '\n📁 内容来源: 本地文件';
+                }
+            case 'markdown':
+                return '\n📄 内容来源: Markdown 字符串';
+            case 'image':
+                if (inputType.includes('base64')) {
+                    return '\n🖼️ 内容来源: Base64 图片';
+                } else {
+                    return '\n🖼️ 内容来源: 图片文件';
+                }
+            default:
+                return `\n📋 内容来源: ${config.type}`;
         }
     }
 
