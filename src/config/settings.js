@@ -40,6 +40,13 @@ const DEFAULT_SETTINGS = {
         saveHtmlContent: true, // 是否在历史记录中保存HTML内容
         maxHistoryItems: 10    // 最大历史记录数量
     },
+    // LLM配置
+    llm: {
+        apiUrl: '',           // LLM API URL
+        apiKey: '',           // LLM API Key
+        model: '',            // 使用的模型名称
+        enabled: false        // 是否启用LLM功能
+    },
     // 启动模式设置
     startup: {
         mode: 'tray', // 'tray' 或 'window'

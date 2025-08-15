@@ -122,12 +122,13 @@ const renderGUISchema = {
         type: {
             type: 'string',
             description: '内容类型标识',
-            enum: ['html', 'url', 'markdown', 'image'],
+            enum: ['html', 'url', 'markdown', 'image', 'auto'],
             examples: {
                 'html': 'HTML 字符串内容',
                 'url': '本地文件路径或网络 URL',
                 'markdown': 'Markdown 字符串内容',
-                'image': '图片路径或 base64 数据'
+                'image': '图片路径或 base64 数据',
+                'auto': '自动检测内容类型（需要配置LLM）'
             }
         },
         content: {

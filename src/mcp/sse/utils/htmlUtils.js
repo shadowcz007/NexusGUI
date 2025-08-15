@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const LLMTypeDetector = require('../tools/LLMTypeDetector');
 
 /**
  * HTML输入处理工具类
@@ -8,7 +9,7 @@ const path = require('path');
 class HtmlUtils {
     /**
      * 处理内容输入（新版本，支持 type 字段）
-     * @param {string} type - 内容类型 ('html', 'url', 'markdown', 'image')
+     * @param {string} type - 内容类型 ('html', 'url', 'markdown', 'image', 'auto')
      * @param {string} content - 内容数据
      * @returns {Object} 处理结果
      */
@@ -21,9 +22,69 @@ class HtmlUtils {
             throw new Error('type 和 content 必须是字符串类型');
         }
 
-        const validTypes = ['html', 'url', 'markdown', 'image'];
+        const validTypes = ['html', 'url', 'markdown', 'image', 'auto'];
         if (!validTypes.includes(type)) {
             throw new Error(`无效的 type 值: ${type}，必须是 ${validTypes.join(', ')} 之一`);
+        }
+
+        // 如果是auto类型，使用LLM自动检测
+        if (type === 'auto') {
+            // 同步版本返回默认处理结果（HTML）
+            console.warn('警告: auto类型需要异步处理，这里返回原始内容作为html类型');
+            return this.processHtmlContent(content);
+        }
+
+        switch (type) {
+            case 'html':
+                return this.processHtmlContent(content);
+
+            case 'url':
+                return this.processUrlContent(content);
+
+            case 'markdown':
+                return this.processMarkdownContent(content);
+
+            case 'image':
+                return this.processImageContent(content);
+
+            default:
+                throw new Error(`不支持的内容类型: ${type}`);
+        }
+    }
+
+    /**
+     * 异步处理内容输入（支持 auto 类型的LLM检测）
+     * @param {string} type - 内容类型 ('html', 'url', 'markdown', 'image', 'auto')
+     * @param {string} content - 内容数据
+     * @returns {Promise<Object>} 处理结果
+     */
+    static async processContentInputAsync(type, content) {
+        if (!type || !content) {
+            throw new Error('type 和 content 参数都不能为空');
+        }
+
+        if (typeof type !== 'string' || typeof content !== 'string') {
+            throw new Error('type 和 content 必须是字符串类型');
+        }
+
+        const validTypes = ['html', 'url', 'markdown', 'image', 'auto'];
+        if (!validTypes.includes(type)) {
+            throw new Error(`无效的 type 值: ${type}，必须是 ${validTypes.join(', ')} 之一`);
+        }
+
+        // 如果是auto类型，使用LLM自动检测
+        if (type === 'auto') {
+            try {
+                console.log('🔍 使用LLM自动检测内容类型');
+                const detectedType = await LLMTypeDetector.detectType(content);
+                console.log(`🤖 LLM检测结果: ${detectedType}`);
+                // 递归调用处理检测到的类型
+                return await this.processContentInputAsync(detectedType, content);
+            } catch (error) {
+                console.warn(`⚠️ LLM类型检测失败: ${error.message}，使用默认HTML处理`);
+                // 如果LLM检测失败，回退到HTML处理
+                return this.processHtmlContent(content);
+            }
         }
 
         switch (type) {

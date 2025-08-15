@@ -80,7 +80,14 @@ class RenderGUITool extends BaseToolHandler {
             this.log('info', `渲染动态 GUI: ${config.title}${config.waitForResult ? ' (同步等待结果)' : ''}`);
 
             // 处理内容输入
-            const htmlResult = this.processContentInput(config.type, config.content);
+            let htmlResult;
+            if (config.type === 'auto') {
+                // 使用异步处理支持LLM类型检测
+                htmlResult = await this.processContentInputAsync(config.type, config.content);
+            } else {
+                // 使用同步处理
+                htmlResult = this.processContentInput(config.type, config.content);
+            }
             const processedHtml = htmlResult.content;
             const inputType = `${htmlResult.type}${htmlResult.subType ? `(${htmlResult.subType})` : ''}`;
             
@@ -369,7 +376,27 @@ class RenderGUITool extends BaseToolHandler {
      */
     processContentInput(type, content) {
         try {
+            // 如果是auto类型，使用异步处理
+            if (type === 'auto') {
+                // 在同步上下文中，我们记录警告并使用默认处理
+                console.warn('警告: auto类型需要异步处理，这里返回原始内容作为html类型');
+                return HtmlUtils.processContentInput('html', content);
+            }
             return HtmlUtils.processContentInput(type, content);
+        } catch (error) {
+            throw new Error(`内容输入处理失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 异步处理内容输入（支持 auto 类型的LLM检测）
+     * @param {string} type - 内容类型
+     * @param {string} content - 内容数据
+     * @returns {Promise<Object>} 处理结果
+     */
+    async processContentInputAsync(type, content) {
+        try {
+            return await HtmlUtils.processContentInputAsync(type, content);
         } catch (error) {
             throw new Error(`内容输入处理失败: ${error.message}`);
         }
