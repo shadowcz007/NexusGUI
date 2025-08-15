@@ -7,9 +7,16 @@ const path = require('path');
 // 导入重构后的工具系统
 const ToolRegistry = require('./tools/ToolRegistry');
 const RenderGUITool = require('./tools/RenderGUITool');
-const GetGUITool = require('./tools/GetGUITool');
+const GetContextTool = require('./tools/GetContextTool');
 const InjectJSTool = require('./tools/InjectJSTool');
 const NotificationTool = require('./tools/NotificationTool');
+const ShowInFileManagerTool = require('./tools/ShowInFileManagerTool');
+const RenderHistoryTool = require('./tools/RenderHistoryTool');
+const QuickTestTool = require('./tools/QuickTestTool');
+const NetworkStatusTool = require('./tools/NetworkStatusTool');
+const DebugLogsTool = require('./tools/DebugLogsTool');
+const MonitorInfoTool = require('./tools/MonitorInfoTool');
+const TestTool = require('./tools/TestTool');
 
 // 读取 package.json 获取项目信息
 const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../../package.json'), 'utf8'));
@@ -43,15 +50,18 @@ async function initializeToolRegistry() {
         console.log('🔧 初始化工具注册器...');
         
         globalToolRegistry = new ToolRegistry();
-        
-        // 创建工具实例
-        const renderGUITool = new RenderGUITool();
-        const getGUITool = new GetGUITool(); // 不再需要传入renderGUITool实例，直接从全局缓存获取
-        
+         
         // 注册所有工具
-        globalToolRegistry.register(renderGUITool);
-        globalToolRegistry.register(getGUITool);
+        globalToolRegistry.register(new RenderGUITool());
+        globalToolRegistry.register(new GetContextTool());
         globalToolRegistry.register(new InjectJSTool());
+        // globalToolRegistry.register(new ShowInFileManagerTool());
+        // globalToolRegistry.register(new RenderHistoryTool());
+        // globalToolRegistry.register(new QuickTestTool());
+        // globalToolRegistry.register(new NetworkStatusTool());
+        // globalToolRegistry.register(new DebugLogsTool());
+        // globalToolRegistry.register(new MonitorInfoTool());
+        // globalToolRegistry.register(new TestTool());
         // globalToolRegistry.register(new NotificationTool());
         
         // 初始化所有工具
@@ -172,8 +182,53 @@ app.use((req, res, next) => {
 // 存储传输层实例
 const transports = {};
 
+// 定期更新网络状态
+let networkStatusInterval = null;
+
+// 启动网络状态更新定时器
+function startNetworkStatusUpdater(appStateService) {
+    if (networkStatusInterval) {
+        clearInterval(networkStatusInterval);
+    }
+    
+    networkStatusInterval = setInterval(() => {
+        if (appStateService) {
+            const activeSessions = Object.keys(transports).length;
+            const now = new Date().toISOString();
+            
+            // 更新网络状态
+            appStateService.updateNetworkStatus({
+                activeSessions: activeSessions,
+                lastActivity: now,
+                totalSessions: activeSessions
+            });
+        }
+    }, 5000); // 每5秒更新一次
+}
+
+// 停止网络状态更新定时器
+function stopNetworkStatusUpdater() {
+    if (networkStatusInterval) {
+        clearInterval(networkStatusInterval);
+        networkStatusInterval = null;
+    }
+}
+
 // 创建服务器函数，供 Electron 集成使用
-function createServer(port = 3001) {
+async function createServer(port = 3001) {
+    // 启动网络状态更新定时器
+    if (global.appStateService) {
+        startNetworkStatusUpdater(global.appStateService);
+    }
+    
+    // 在启动服务器之前确保工具注册器已初始化
+    await initializeToolRegistry();
+    
+    // 确保工具注册器在全局可访问
+    if (globalToolRegistry) {
+        global.toolRegistry = globalToolRegistry;
+    }
+    
     // SSE 端点：建立流连接
     app.get('/mcp', async(req, res) => {
         // console.log('收到 GET 请求到 /mcp (建立 SSE 流)');
@@ -194,6 +249,15 @@ function createServer(port = 3001) {
                 if (transport.sessionId) {
                     delete transports[transport.sessionId];
                     console.log(`🗑️ 已从传输层存储中删除会话 ${transport.sessionId}`);
+                }
+                
+                // 更新网络状态
+                if (global.appStateService) {
+                    const activeSessions = Object.keys(transports).length;
+                    global.appStateService.updateNetworkStatus({
+                        activeSessions: activeSessions,
+                        totalSessions: activeSessions
+                    });
                 }
             };
 
@@ -782,7 +846,7 @@ function createServer(port = 3001) {
     });
 
     // 启动服务器
-    const server = app.listen(port, async (error) => {
+    const server = app.listen(port, (error) => {
         if (error) {
             console.error('❌ 启动服务器失败:', error);
             throw error;
@@ -794,8 +858,7 @@ function createServer(port = 3001) {
         console.log(`🐛 调试端点: http://localhost:${port}/debug/sessions`);
         console.log(`🌐 CORS 已启用，允许跨域请求`);
         
-        // 确保工具注册器已初始化
-        await initializeToolRegistry();
+        console.log(`✅ 工具注册器已初始化，共 ${globalToolRegistry ? globalToolRegistry.getStats().totalTools : 0} 个工具`);
     });
 
     // 返回服务器实例和关闭函数
@@ -804,6 +867,9 @@ function createServer(port = 3001) {
         toolRegistry: globalToolRegistry, // 暴露工具注册器
         close: async() => {
             console.log('正在关闭 SSE 服务器...');
+
+            // 停止网络状态更新定时器
+            stopNetworkStatusUpdater();
 
             // 清理工具注册器
             if (globalToolRegistry) {

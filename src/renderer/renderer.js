@@ -311,7 +311,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.electronAPI && window.electronAPI.on) {
         window.electronAPI.on('render-dynamic-gui', handleDynamicGUI);
     }
+    
+    // 添加固定窗口按钮
+    addPinWindowButton();
 });
+
+// 添加固定窗口按钮
+function addPinWindowButton() {
+    // 创建固定按钮
+    const pinButton = document.createElement('button');
+    pinButton.id = 'pin-window-button';
+    pinButton.className = 'btn btn-secondary';
+    pinButton.innerHTML = '📌 固定窗口';
+    pinButton.style.position = 'fixed';
+    pinButton.style.top = '10px';
+    pinButton.style.right = '10px';
+    pinButton.style.zIndex = '9999';
+    
+    // 添加点击事件
+    pinButton.addEventListener('click', async () => {
+        try {
+            // 切换固定状态
+            const isPinned = pinButton.classList.contains('pinned');
+            
+            // 发送请求到主进程
+            await window.electronAPI.send('toggle-window-pin', !isPinned);
+            
+            // 更新按钮状态
+            if (!isPinned) {
+                pinButton.classList.add('pinned');
+                pinButton.innerHTML = '📍 窗口已固定';
+                pinButton.title = '点击取消固定窗口';
+            } else {
+                pinButton.classList.remove('pinned');
+                pinButton.innerHTML = '📌 固定窗口';
+                pinButton.title = '点击固定窗口';
+            }
+        } catch (error) {
+            console.error('切换窗口固定状态失败:', error);
+        }
+    });
+    
+    // 添加到页面
+    document.body.appendChild(pinButton);
+}
 
 // 监听语言变更事件
 window.addEventListener('language-changed', async (event) => {

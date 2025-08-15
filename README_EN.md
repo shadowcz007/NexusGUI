@@ -34,7 +34,8 @@ After startup, the application will launch an MCP server at `http://localhost:30
   "title": "My First Interface",
   "width": 600,
   "height": 400,
-  "html": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>This is my first dynamic interface</p></div>"
+  "type": "html",
+  "content": "<div style='padding: 20px; text-align: center;'><h1>Hello NexusGUI!</h1><p>This is my first dynamic interface</p></div>"
 }
 ```
 
@@ -55,6 +56,9 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Integrated health check, debug info, session management tools
 - ✅ Support server settings and configuration management
 - ✅ Cross-platform support (macOS, Windows, Linux)
+- ✅ Add recent rendered interface history, support quick re-rendering
+- ✅ Provide "quick test" feature, render predefined test interfaces
+- ✅ Add network status indicator, display connection status with AI tools
 
 ### Direct HTML Rendering Mode 🆕
 - ✅ Support direct HTML string input for interface rendering
@@ -86,6 +90,11 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Support window size constraints (min/max width/height)
 - ✅ Support window behavior control (always on top, taskbar display, resizable, etc.)
 - ✅ Support window appearance settings (opacity, zoom factor, fullscreen mode)
+
+### Debug Functionality Enhancement
+- ✅ Provide unified debug console, centralize all logs and debug information
+- ✅ Add real-time monitoring panel, display server status, session count, resource usage, etc.
+- ✅ Provide API testing tool, facilitate developer testing of MCP tool calls
 
 ## 🆕 Refactored Architecture
 
@@ -276,7 +285,8 @@ After startup, the MCP server provides services at the following endpoints:
   "title": "HTML Interface Example",
   "width": 800,
   "height": 600,
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>Hello World</h1>
       <p>This is an HTML interface</p>
@@ -286,7 +296,7 @@ After startup, the MCP server provides services at the following endpoints:
 }
 ```
 
-## HTML to Markdown Feature Usage
+### HTML to Markdown Feature Usage
 
 ### Automatic Conversion and Caching
 
@@ -311,6 +321,19 @@ When using the `render-gui` tool to render HTML interfaces, the system automatic
 // ⏰ Created time: 2025/8/3 14:51:39
 ```
 
+### Show File in File Manager
+
+```javascript
+// Use show-in-file-manager tool to show Markdown file in file manager
+{
+  "filePath": "/tmp/nexusgui-cache/interface-title-2025-08-03T14-51-39-788Z.md"
+}
+
+// Return result:
+// ✅ File shown in file manager:
+// 📁 /tmp/nexusgui-cache/interface-title-2025-08-03T14-51-39-788Z.md
+```
+
 ### Read Markdown Content
 
 ```javascript
@@ -320,7 +343,7 @@ When using the `render-gui` tool to render HTML interfaces, the system automatic
   "readMarkdown": true
 }
 
-// Returns complete Markdown text content
+// Returns complete Markdown text content (if content is long, shows preview of first 1000 characters)
 ```
 
 ### Get Both HTML and Markdown
@@ -383,7 +406,8 @@ System Temp Directory/nexusgui-cache/
   "width": 400,
   "height": 300,
   "waitForResult": true,  // Synchronously wait for result
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; text-align: center;">
       <h2>Confirm Operation</h2>
       <p>Are you sure you want to perform this operation?</p>
@@ -404,7 +428,8 @@ System Temp Directory/nexusgui-cache/
 {
   "title": "Window Reuse Example",
   "reuseWindow": true,  // Reuse existing window
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px;">
       <h1>Window Updated</h1>
       <p>This content replaced the previous window content</p>
@@ -424,7 +449,8 @@ System Temp Directory/nexusgui-cache/
     "userName": "John Doe",
     "userAge": 25
   },
-  "html": `
+  "type": "html",
+  "content": `
     <div style="padding: 20px; font-family: Arial, sans-serif;">
       <h1 style="color: #333;">User Information Form</h1>
       

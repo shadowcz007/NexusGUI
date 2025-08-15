@@ -344,6 +344,117 @@ class LoggerService {
         this.info('日志服务正在清理...', {}, 'LOGGER');
         // 这里可以添加清理逻辑，比如关闭文件句柄等
     }
+    
+    /**
+     * 获取最新的日志内容
+     * @param {number} lines - 要获取的日志行数
+     * @returns {Array} 日志条目数组
+     */
+    getRecentLogs(lines = 100) {
+        try {
+            if (!this.enableFileLogging) {
+                return [{
+                    timestamp: new Date().toISOString(),
+                    level: 'WARN',
+                    module: 'LOGGER',
+                    message: '文件日志未启用，无法获取历史日志',
+                    context: {}
+                }];
+            }
+            
+            const today = new Date().toISOString().split('T')[0];
+            const logFileName = `nexusgui-${today}.log`;
+            const logFilePath = path.join(this.logDir, logFileName);
+            
+            if (!fs.existsSync(logFilePath)) {
+                return [{
+                    timestamp: new Date().toISOString(),
+                    level: 'INFO',
+                    module: 'LOGGER',
+                    message: '今日暂无日志文件',
+                    context: {}
+                }];
+            }
+            
+            // 读取文件内容
+            const content = fs.readFileSync(logFilePath, 'utf8');
+            const logLines = content.split('\n').filter(line => line.trim() !== '');
+            
+            // 获取最后N行
+            const recentLines = logLines.slice(-lines);
+            
+            // 解析日志行
+            const logs = [];
+            for (const line of recentLines) {
+                // 尝试解析日志格式
+                const logMatch = line.match(/\[([^\]]+)\] \[([^\]]+)\] \[([^\]]+)\] (.+)/);
+                if (logMatch) {
+                    logs.push({
+                        timestamp: logMatch[1],
+                        level: logMatch[2].trim(),
+                        module: logMatch[3].trim(),
+                        message: logMatch[4],
+                        context: {}
+                    });
+                } else {
+                    // 如果无法解析格式，作为普通消息处理
+                    logs.push({
+                        timestamp: new Date().toISOString(),
+                        level: 'INFO',
+                        module: 'LOGGER',
+                        message: line,
+                        context: {}
+                    });
+                }
+            }
+            
+            return logs;
+        } catch (error) {
+            return [{
+                timestamp: new Date().toISOString(),
+                level: 'ERROR',
+                module: 'LOGGER',
+                message: `获取日志失败: ${error.message}`,
+                context: {}
+            }];
+        }
+    }
+    
+    /**
+     * 获取日志文件列表
+     * @returns {Array} 日志文件信息数组
+     */
+    getLogFiles() {
+        try {
+            if (!this.enableFileLogging) {
+                return [];
+            }
+            
+            if (!fs.existsSync(this.logDir)) {
+                return [];
+            }
+            
+            const files = fs.readdirSync(this.logDir)
+                .filter(file => file.startsWith('nexusgui-') && file.endsWith('.log'))
+                .map(file => {
+                    const filePath = path.join(this.logDir, file);
+                    const stats = fs.statSync(filePath);
+                    return {
+                        name: file,
+                        path: filePath,
+                        size: stats.size,
+                        modified: stats.mtime,
+                        created: stats.birthtime
+                    };
+                })
+                .sort((a, b) => b.modified - a.modified);
+            
+            return files;
+        } catch (error) {
+            this.error(`获取日志文件列表失败: ${error.message}`, {}, 'LOGGER');
+            return [];
+        }
+    }
 }
 
 module.exports = { LoggerService };

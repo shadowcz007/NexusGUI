@@ -233,6 +233,41 @@ function generateServerSettingsHTML(currentSettings) {
                     <div class="toggle ${currentSettings.ui.showInTray ? 'active' : ''}" id="show-in-tray" onclick="toggleSetting(this)"></div>
                 </div>
             </div>
+            <div class="setting-item">
+                <span class="setting-label">托盘菜单标题长度</span>
+                <div class="setting-control">
+                    <input type="number" id="tray-title-length" value="${currentSettings.ui.trayMenuTitleMaxLength || 30}" min="15" max="60" step="1">
+                    <span class="setting-hint">字符数 (15-60)</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <div class="setting-title">LLM 设置</div>
+            <div class="setting-item">
+                <span class="setting-label">启用 LLM 功能</span>
+                <div class="setting-control">
+                    <div class="toggle ${currentSettings.llm.enabled ? 'active' : ''}" id="llm-enabled" onclick="toggleSetting(this)"></div>
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">API URL</span>
+                <div class="setting-control">
+                    <input type="text" id="llm-api-url" value="${currentSettings.llm.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">API Key</span>
+                <div class="setting-control">
+                    <input type="password" id="llm-api-key" value="${currentSettings.llm.apiKey}" placeholder="sk-...">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">模型名称</span>
+                <div class="setting-control">
+                    <input type="text" id="llm-model" value="${currentSettings.llm.model}" placeholder="gpt-4, gpt-3.5-turbo, etc.">
+                </div>
+            </div>
         </div>
         
         <div class="actions">
@@ -287,7 +322,12 @@ function generateServerSettingsHTML(currentSettings) {
                     'logging.enableVerbose': document.getElementById('enable-verbose').classList.contains('active'),
                     'logging.level': document.getElementById('log-level').value,
                     'ui.alwaysOnTop': document.getElementById('always-on-top').classList.contains('active'),
-                    'ui.showInTray': document.getElementById('show-in-tray').classList.contains('active')
+                    'ui.showInTray': document.getElementById('show-in-tray').classList.contains('active'),
+                    'ui.trayMenuTitleMaxLength': parseInt(document.getElementById('tray-title-length').value),
+                    'llm.enabled': document.getElementById('llm-enabled').classList.contains('active'),
+                    'llm.apiUrl': document.getElementById('llm-api-url').value,
+                    'llm.apiKey': document.getElementById('llm-api-key').value,
+                    'llm.model': document.getElementById('llm-model').value
                 };
                 
                 console.log('保存设置:', settings);

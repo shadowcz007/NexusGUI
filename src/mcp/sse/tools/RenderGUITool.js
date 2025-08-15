@@ -47,9 +47,18 @@ class RenderGUITool extends BaseToolHandler {
         // 调用基类验证
         super.validate(args);
 
-        // 验证HTML输入
-        if (!args.html) {
-            throw new Error('缺少 html 参数，请提供 HTML 文件路径或 HTML 字符串');
+        // 验证内容输入
+        const validTypes = ['html', 'url', 'markdown', 'image', 'auto'];
+        if (!validTypes.includes(args.type)) {
+            throw new Error(`无效的 type 值: ${args.type}，必须是 ${validTypes.join(', ')} 之一`);
+        }
+        if (!args.content || typeof args.content !== 'string') {
+            throw new Error('content 参数不能为空且必须是字符串');
+        }
+        
+        // 根据类型进行基本验证
+        if (args.type === 'html' && !HtmlUtils.isHtmlString(args.content)) {
+            throw new Error('当 type=html 时，content 必须包含有效的 HTML 标签');
         }
 
         // 验证窗口配置
@@ -70,13 +79,22 @@ class RenderGUITool extends BaseToolHandler {
             
             this.log('info', `渲染动态 GUI: ${config.title}${config.waitForResult ? ' (同步等待结果)' : ''}`);
 
-            // 处理 HTML 输入
-            const htmlResult = this.processHtmlInput(config.html);
+            // 处理内容输入
+            let htmlResult;
+            if (config.type === 'auto') {
+                // 使用异步处理支持LLM类型检测
+                htmlResult = await this.processContentInputAsync(config.type, config.content);
+            } else {
+                // 使用同步处理
+                htmlResult = this.processContentInput(config.type, config.content);
+            }
             const processedHtml = htmlResult.content;
-            const inputType = htmlResult.type;
+            const inputType = `${htmlResult.type}${htmlResult.subType ? `(${htmlResult.subType})` : ''}`;
+            
+            this.log('info', `处理内容: type=${config.type}, inputType=${inputType}`);
 
             // 缓存HTML内容到全局
-            this.cacheHtml(processedHtml, config);
+            this.cacheHtml(processedHtml, config, htmlResult);
 
             // 检查主进程支持
             if (!global.createWindow) {
@@ -106,12 +124,20 @@ class RenderGUITool extends BaseToolHandler {
                 opacity: config.opacity,
                 fullscreen: config.fullscreen,
                 zoomFactor: config.zoomFactor,
-                html: processedHtml,
-                data: config.data,
                 callbacks: config.callbacks,
                 reuseWindow: config.reuseWindow,
                 waitForResult: config.waitForResult
             };
+
+            // 根据处理结果决定使用 HTML 还是 URL
+            if (htmlResult.directUrl) {
+                // 对于网络 URL，直接使用 URL 加载，避免 CSP 错误
+                windowConfig.url = htmlResult.url;
+                this.log('info', `使用直接 URL 模式加载网络内容: ${htmlResult.url}`);
+            } else {
+                // 对于其他类型（本地文件、HTML 字符串等），使用 HTML 内容
+                windowConfig.html = processedHtml;
+            }
 
             this.log('info', 'MCP 调用窗口创建', { 
                 title: config.title, 
@@ -128,10 +154,19 @@ class RenderGUITool extends BaseToolHandler {
                 
                 this.log('info', 'MCP 窗口操作完成', { result });
 
+                // 获取Markdown文件路径（如果已生成）
+                let markdownInfo = '';
+                if (global.renderGuiCache && global.renderGuiCache.markdown) {
+                    markdownInfo = `\n📄 Markdown文件已生成: ${global.renderGuiCache.markdown.filePath}`;
+                    if (global.renderGuiCache.markdown.latestFilePath) {
+                        markdownInfo += `\n🔗 最新文件链接: ${global.renderGuiCache.markdown.latestFilePath}`;
+                    }
+                }
+
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}\n💾 HTML已缓存到全局`
+                        text: `✅ 动态界面 "${config.title}" 操作已完成\n📱 窗口尺寸: ${config.width}x${config.height}\n📍 操作结果: ${result.action || '关闭'}\n📄 返回数据: ${JSON.stringify(result.data || {})}\n💾 HTML已缓存到全局${markdownInfo}`
                     }],
                     result: result
                 };
@@ -144,13 +179,25 @@ class RenderGUITool extends BaseToolHandler {
                 // 构建窗口属性信息
                 const windowProps = this.buildWindowPropsInfo(config);
                 const reuseInfo = config.reuseWindow ? '\n🔄 已复用现有窗口' : '\n🆕 已创建新窗口';
-                const inputInfo = inputType === 'file' ? '\n📁 HTML 来源: 文件路径' : '\n📝 HTML 来源: 字符串';
+                const inputInfo = this.getInputTypeInfo(inputType, config);
+                
+                // 获取Markdown文件路径（如果已生成）
+                let markdownInfo = '';
+                let markdownPath = '';
+                if (global.renderGuiCache && global.renderGuiCache.markdown) {
+                    markdownInfo = `\n📄 Markdown文件已生成: ${global.renderGuiCache.markdown.filePath}`;
+                    if (global.renderGuiCache.markdown.latestFilePath) {
+                        markdownInfo += `\n🔗 最新文件链接: ${global.renderGuiCache.markdown.latestFilePath}`;
+                    }
+                    markdownPath = global.renderGuiCache.markdown.filePath;
+                }
 
                 return {
                     content: [{
                         type: 'text',
-                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局`
-                    }]
+                        text: `✅ 动态界面 "${config.title}" 已成功${config.reuseWindow ? '更新' : '创建并渲染'}\n📱 窗口尺寸: ${config.width}x${config.height}${inputInfo}\n📍 窗口已显示在屏幕中央${windowProps}${reuseInfo}\n💾 HTML已缓存到全局${markdownInfo}${markdownPath ? '\n🔍 使用 "get-context" 工具并设置 "readMarkdown": true 参数查看 Markdown 内容预览' : ''}`
+                    }],
+                    markdownPath: markdownPath
                 };
             }
         } catch (error) {
@@ -163,8 +210,9 @@ class RenderGUITool extends BaseToolHandler {
      * 缓存HTML内容到全局并生成Markdown缓存
      * @param {string} html - HTML内容
      * @param {Object} config - 窗口配置
+     * @param {Object} htmlResult - 处理结果，包含类型信息
      */
-    cacheHtml(html, config) {
+    cacheHtml(html, config, htmlResult = {}) {
         try {
             // 转换HTML为Markdown
             const markdown = MarkdownUtils.convertHtmlToMarkdown(html);
@@ -172,7 +220,7 @@ class RenderGUITool extends BaseToolHandler {
             // 保存Markdown到临时目录
             const markdownSaveResult = MarkdownUtils.saveMarkdownToTemp(markdown, config.title);
             
-            // 更新全局缓存，包含Markdown信息
+            // 更新全局缓存，包含Markdown信息和类型信息
             global.renderGuiCache = {
                 html: html,
                 markdown: {
@@ -186,12 +234,22 @@ class RenderGUITool extends BaseToolHandler {
                 config: {
                     title: config.title,
                     width: config.width,
-                    height: config.height,
-                    data: config.data,
+                    height: config.height, 
                     callbacks: config.callbacks
                 },
+                // 保存类型信息，用于历史记录正确渲染
+                type: htmlResult.type || config.type || 'html',
+                originalType: htmlResult.originalType,
+                subType: htmlResult.subType,
+                url: htmlResult.url,
+                directUrl: htmlResult.directUrl,
                 timestamp: new Date().toISOString()
             };
+            
+            // 添加到渲染历史记录
+            if (global.appStateService) {
+                global.appStateService.addRenderHistory(global.renderGuiCache);
+            }
             
             this.log('info', '已缓存HTML内容到全局并生成Markdown文件', { 
                 htmlLength: html.length,
@@ -211,12 +269,22 @@ class RenderGUITool extends BaseToolHandler {
                 config: {
                     title: config.title,
                     width: config.width,
-                    height: config.height,
-                    data: config.data,
+                    height: config.height, 
                     callbacks: config.callbacks
                 },
+                // 保存类型信息，用于历史记录正确渲染
+                type: htmlResult.type || config.type || 'html',
+                originalType: htmlResult.originalType,
+                subType: htmlResult.subType,
+                url: htmlResult.url,
+                directUrl: htmlResult.directUrl,
                 timestamp: new Date().toISOString()
             };
+            
+            // 添加到渲染历史记录
+            if (global.appStateService) {
+                global.appStateService.addRenderHistory(global.renderGuiCache);
+            }
             
             this.log('info', '已缓存HTML内容到全局（无Markdown）', { 
                 htmlLength: html.length,
@@ -306,8 +374,7 @@ class RenderGUITool extends BaseToolHandler {
             title: cachedData.config.title,
             width: cachedData.config.width,
             height: cachedData.config.height,
-            html: cachedData.html,
-            data: cachedData.config.data,
+            html: cachedData.html, 
             callbacks: cachedData.config.callbacks,
             reuseWindow: true,
             waitForResult: false
@@ -324,15 +391,71 @@ class RenderGUITool extends BaseToolHandler {
     }
 
     /**
-     * 处理HTML输入
-     * @param {string} htmlInput - HTML输入
+     * 处理内容输入（新格式）
+     * @param {string} type - 内容类型
+     * @param {string} content - 内容数据
      * @returns {Object} 处理结果
      */
-    processHtmlInput(htmlInput) {
+    processContentInput(type, content) {
         try {
-            return HtmlUtils.processHtmlInput(htmlInput);
+            // 如果是auto类型，使用异步处理
+            if (type === 'auto') {
+                // 在同步上下文中，我们记录警告并使用默认处理
+                console.warn('警告: auto类型需要异步处理，这里返回原始内容作为html类型');
+                return HtmlUtils.processContentInput('html', content);
+            }
+            return HtmlUtils.processContentInput(type, content);
         } catch (error) {
-            throw new Error(`HTML 输入处理失败: ${error.message}`);
+            throw new Error(`内容输入处理失败: ${error.message}`);
+        }
+    }
+
+    /**
+     * 异步处理内容输入（支持 auto 类型的LLM检测）
+     * @param {string} type - 内容类型
+     * @param {string} content - 内容数据
+     * @returns {Promise<Object>} 处理结果
+     */
+    async processContentInputAsync(type, content) {
+        try {
+            return await HtmlUtils.processContentInputAsync(type, content);
+        } catch (error) {
+            throw new Error(`内容输入处理失败: ${error.message}`);
+        }
+    }
+
+
+
+    /**
+     * 获取输入类型信息字符串
+     * @param {string} inputType - 输入类型
+     * @param {Object} config - 配置对象
+     * @returns {string} 输入类型信息
+     */
+    getInputTypeInfo(inputType, config) {
+        switch (config.type) {
+            case 'html':
+                return '\n📝 内容来源: HTML 字符串';
+            case 'url':
+                if (inputType.includes('network')) {
+                    return '\n🌐 内容来源: 网络 URL (直接加载)';
+                } else if (inputType.includes('html-file')) {
+                    return '\n📁 内容来源: HTML 文件';
+                } else if (inputType.includes('markdown-file')) {
+                    return '\n📄 内容来源: Markdown 文件';
+                } else {
+                    return '\n📁 内容来源: 本地文件';
+                }
+            case 'markdown':
+                return '\n📄 内容来源: Markdown 字符串';
+            case 'image':
+                if (inputType.includes('base64')) {
+                    return '\n🖼️ 内容来源: Base64 图片';
+                } else {
+                    return '\n🖼️ 内容来源: 图片文件';
+                }
+            default:
+                return `\n📋 内容来源: ${config.type}`;
         }
     }
 

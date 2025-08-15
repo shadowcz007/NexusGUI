@@ -32,7 +32,25 @@ const DEFAULT_SETTINGS = {
     ui: {
         theme: 'light',
         alwaysOnTop: false,
-        showInTray: true
+        showInTray: true,
+        autoWindowManagement: false, // 是否启用自动窗口管理
+        trayMenuTitleMaxLength: 30 // 托盘菜单中标题的最大显示长度
+    },
+    history: {
+        saveHtmlContent: true, // 是否在历史记录中保存HTML内容
+        maxHistoryItems: 10    // 最大历史记录数量
+    },
+    // LLM配置
+    llm: {
+        apiUrl: '',           // LLM API URL
+        apiKey: '',           // LLM API Key
+        model: '',            // 使用的模型名称
+        enabled: false        // 是否启用LLM功能
+    },
+    // 启动模式设置
+    startup: {
+        mode: 'tray', // 'tray' 或 'window'
+        firstRun: true // 是否首次运行
     },
     name: packageJson.name,
     version: packageJson.version,
@@ -250,6 +268,12 @@ class SettingsManager {
         const logLevel = validationSettings.logging?.level;
         if (!logLevel || !validLogLevels.includes(logLevel)) {
             errors.push(`日志级别必须是: ${validLogLevels.join(', ')} 之一，当前值: ${logLevel}`);
+        }
+
+        // 验证托盘菜单标题最大长度
+        const trayTitleMaxLength = validationSettings.ui?.trayMenuTitleMaxLength;
+        if (trayTitleMaxLength !== undefined && (trayTitleMaxLength < 15 || trayTitleMaxLength > 60)) {
+            errors.push(`托盘菜单标题最大长度必须在15-60之间，当前值: ${trayTitleMaxLength}`);
         }
 
         console.log('🔍 验证结果:', errors.length === 0 ? '通过' : '失败');
