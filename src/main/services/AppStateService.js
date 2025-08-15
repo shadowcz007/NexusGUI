@@ -6,7 +6,7 @@ class AppStateService {
     constructor(loggerService, errorHandlerService) {
         this.logger = loggerService.createModuleLogger('APP_STATE');
         this.errorHandler = errorHandlerService;
-        
+
         this.state = {
             mcpServerInfo: {
                 status: 'stopped',
@@ -29,7 +29,7 @@ class AppStateService {
             renderHistory: [],
             isShuttingDown: false
         };
-        
+
         this.listeners = new Map(); // 状态变化监听器
         this.logger.info('应用状态服务已初始化');
     }
@@ -168,7 +168,7 @@ class AppStateService {
             // 获取历史记录配置
             const saveHtmlContent = global.settingsManager?.getSetting('history.saveHtmlContent') !== false;
             const maxHistoryItems = global.settingsManager?.getSetting('history.maxHistoryItems') || 10;
-            
+
             // 创建历史记录条目
             const historyEntry = {
                 id: Date.now().toString(),
