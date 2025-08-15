@@ -48,7 +48,7 @@ class RenderGUITool extends BaseToolHandler {
         super.validate(args);
 
         // 验证内容输入
-        const validTypes = ['html', 'url', 'markdown', 'image'];
+        const validTypes = ['html', 'url', 'markdown', 'image', 'auto'];
         if (!validTypes.includes(args.type)) {
             throw new Error(`无效的 type 值: ${args.type}，必须是 ${validTypes.join(', ')} 之一`);
         }

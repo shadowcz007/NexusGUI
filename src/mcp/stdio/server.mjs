@@ -31,7 +31,7 @@ function processContentInput(type, content) {
         throw new Error('type 和 content 必须是字符串类型');
     }
 
-    const validTypes = ['html', 'url', 'markdown', 'image'];
+    const validTypes = ['html', 'url', 'markdown', 'image', 'auto'];
     if (!validTypes.includes(type)) {
         throw new Error(`无效的 type 值: ${type}，必须是 ${validTypes.join(', ')} 之一`);
     }
@@ -48,6 +48,11 @@ function processContentInput(type, content) {
         
         case 'image':
             return processImageContent(content);
+        
+        case 'auto':
+            // auto 类型需要异步处理，在 stdio 服务器中暂时回退到 html 处理
+            console.warn('警告: stdio 服务器中的 auto 类型暂时回退到 html 处理');
+            return processHtmlContent(content);
         
         default:
             throw new Error(`不支持的内容类型: ${type}`);
