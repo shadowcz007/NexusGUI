@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI编程训练营课程日历</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            background: #f8f9fa;
+            padding: 25px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 1.1em;
+        }
+
+        .control-group input, .control-group select {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .control-group input:focus, .control-group select:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+        }
+
+        .btn.danger:hover {
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .legend {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 20px;
+            margin: 0 30px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+
+        .legend-color.course {
+            background: linear-gradient(135deg, #10ac84 0%, #1dd1a1 100%);
+            color: white;
+        }
+
+        .legend-color.user {
+            background: linear-gradient(135deg, #a55eea 0%, #8e44ad 100%);
+            color: white;
+        }
+
+        .legend-color.today {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+        }
+
+        .legend-color.selected {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .course-schedule {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            padding: 20px;
+            margin: 20px 30px;
+            border-radius: 10px;
+        }
+
+        .course-schedule h3 {
+            color: #2d5a2d;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .course-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 10px;
+        }
+
+        .course-item {
+            background: rgba(255, 255, 255, 0.7);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .calendar-container {
+            padding: 30px;
+            min-height: 400px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            gap: 30px;
+            justify-content: center;
+        }
+
+        .calendar-grid.cols-1 { grid-template-columns: 1fr; }
+        .calendar-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .calendar-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .calendar-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .calendar-grid.cols-6 { grid-template-columns: repeat(3, 1fr); }
+        .calendar-grid.cols-12 { grid-template-columns: repeat(4, 1fr); }
+
+        @media (max-width: 1200px) {
+            .calendar-grid.cols-4, .calendar-grid.cols-6, .calendar-grid.cols-12 {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        @media (max-width: 900px) {
+            .calendar-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .calendar-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
+
+        .month-calendar {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease forwards;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        .month-calendar:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .month-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.3em;
+            font-weight: 700;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .weekday {
+            padding: 15px 5px;
+            text-align: center;
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .days {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+        }
+
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #f1f3f4;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .day:hover {
+            background: #e3f2fd;
+            color: #1976d2;
+            transform: scale(1.05);
+        }
+
+        .day.other-month {
+            color: #adb5bd;
+            background: #f8f9fa;
+        }
+
+        .day.today {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .day.selected {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            font-weight: 700;
+        }
+
+        .day.course-date {
+            background: linear-gradient(135deg, #10ac84 0%, #1dd1a1 100%);
+            color: white;
+            font-weight: 700;
+            position: relative;
+        }
+
+        .day.course-date::after {
+            content: '📚';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+        }
+
+        .day.user-marked {
+            background: linear-gradient(135deg, #a55eea 0%, #8e44ad 100%);
+            color: white;
+            font-weight: 700;
+            position: relative;
+        }
+
+        .day.user-marked::after {
+            content: '📌';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 1.2em;
+        }
+
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .status-info {
+            background: #e8f5e8;
+            border: 1px solid #c3e6c3;
+            color: #2d5a2d;
+            padding: 15px;
+            margin: 20px 30px;
+            border-radius: 8px;
+            font-weight: 500;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🗓️ AI编程训练营课程日历</h1>
+            <p>点击日期进行标记，绿色为课程日期，紫色为用户标记</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="monthCount">显示月份数:</label>
+                <select id="monthCount">
+                    <option value="1">1个月</option>
+                    <option value="2">2个月</option>
+                    <option value="3" selected>3个月</option>
+                    <option value="4">4个月</option>
+                    <option value="6">6个月</option>
+                    <option value="12">12个月</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="startYear">起始年份:</label>
+                <input type="number" id="startYear" min="2020" max="2030" value="2024">
+            </div>
+            
+            <div class="control-group">
+                <label for="startMonth">起始月份:</label>
+                <select id="startMonth">
+                    <option value="0">1月</option>
+                    <option value="1">2月</option>
+                    <option value="2">3月</option>
+                    <option value="3">4月</option>
+                    <option value="4">5月</option>
+                    <option value="5">6月</option>
+                    <option value="6">7月</option>
+                    <option value="7">8月</option>
+                    <option value="8" selected>9月</option>
+                    <option value="9">10月</option>
+                    <option value="10">11月</option>
+                    <option value="11">12月</option>
+                </select>
+            </div>
+            
+            <button class="btn" onclick="updateCalendar()">🔄 更新日历</button>
+            <button class="btn danger" onclick="clearAllMarks()">🧹 清除标记</button>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color course">📚</div>
+                <span>课程日期</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color user">📌</div>
+                <span>用户标记</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color today">📅</div>
+                <span>今天</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color selected">✨</div>
+                <span>选中日期</span>
+            </div>
+        </div>
+        
+        <div class="course-schedule">
+            <h3>📚 AI编程训练营课程安排 (共10节课)</h3>
+            <div class="course-list">
+                <div class="course-item"><span>第1课: 9月17日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第2课: 9月20日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第3课: 9月24日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第4课: 9月27日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第5课: 10月1日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第6课: 10月4日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第7课: 10月8日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第8课: 10月11日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第9课: 10月15日</span><span>20:00-21:30</span></div>
+                <div class="course-item"><span>第10课: 10月18日</span><span>20:00-21:30</span></div>
+            </div>
+        </div>
+        
+        <div class="status-info" id="statusInfo">
+            当前显示: 3个月 | 每次修改月份数时，旧视图将被完全销毁并重新创建
+        </div>
+        
+        <div class="calendar-container">
+            <div id="calendarGrid" class="calendar-grid cols-3">
+                <div class="loading">正在加载日历...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 课程日期数组 (月份从0开始，所以9月是8，10月是9)
+        const courseDates = [
+            { year: 2024, month: 8, day: 17, lesson: '第1课' },
+            { year: 2024, month: 8, day: 20, lesson: '第2课' },
+            { year: 2024, month: 8, day: 24, lesson: '第3课' },
+            { year: 2024, month: 8, day: 27, lesson: '第4课' },
+            { year: 2024, month: 9, day: 1, lesson: '第5课' },
+            { year: 2024, month: 9, day: 4, lesson: '第6课' },
+            { year: 2024, month: 9, day: 8, lesson: '第7课' },
+            { year: 2024, month: 9, day: 11, lesson: '第8课' },
+            { year: 2024, month: 9, day: 15, lesson: '第9课' },
+            { year: 2024, month: 9, day: 18, lesson: '第10课' }
+        ];
+
+        // 用户标记管理类
+        class DateMarker {
+            constructor() {
+                this.markedDates = this.loadMarkedDates();
+            }
+
+            loadMarkedDates() {
+                try {
+                    const saved = localStorage.getItem('userMarkedDates');
+                    return saved ? JSON.parse(saved) : [];
+                } catch (e) {
+                    console.error('加载标记日期失败:', e);
+                    return [];
+                }
+            }
+
+            saveMarkedDates() {
+                try {
+                    localStorage.setItem('userMarkedDates', JSON.stringify(this.markedDates));
+                    console.log('标记日期已保存:', this.markedDates.length + '个');
+                } catch (e) {
+                    console.error('保存标记日期失败:', e);
+                }
+            }
+
+            isMarked(year, month, day) {
+                return this.markedDates.some(date => 
+                    date.year === year && date.month === month && date.day === day
+                );
+            }
+
+            toggleMark(year, month, day) {
+                const index = this.markedDates.findIndex(date => 
+                    date.year === year && date.month === month && date.day === day
+                );
+
+                if (index >= 0) {
+                    this.markedDates.splice(index, 1);
+                    console.log('取消标记:', year + '-' + (month + 1) + '-' + day);
+                    return false;
+                } else {
+                    this.markedDates.push({ year, month, day });
+                    console.log('添加标记:', year + '-' + (month + 1) + '-' + day);
+                    return true;
+                }
+            }
+
+            clearAllMarks() {
+                this.markedDates = [];
+                this.saveMarkedDates();
+                console.log('所有标记已清除');
+            }
+
+            getMarkedDates() {
+                return this.markedDates;
+            }
+        }
+
+        // 全局变量
+        let currentCalendarInstance = null;
+        const dateMarker = new DateMarker();
+        
+        // 月份名称
+        const monthNames = [
+            '一月', '二月', '三月', '四月', '五月', '六月',
+            '七月', '八月', '九月', '十月', '十一月', '十二月'
+        ];
+        
+        // 星期名称
+        const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+
+        // 增强的日历实例类
+        class EnhancedCalendarInstance {
+            constructor(monthCount, startYear, startMonth) {
+                this.monthCount = monthCount;
+                this.startYear = startYear;
+                this.startMonth = startMonth;
+                this.data = [];
+                this.isDestroyed = false;
+                
+                console.log('📅 创建新的增强日历实例: ' + monthCount + '个月, 起始: ' + startYear + '年' + (startMonth + 1) + '月');
+                this.generateCalendarData();
+            }
+            
+            generateCalendarData() {
+                this.data = [];
+                const today = new Date();
+                
+                for (let i = 0; i < this.monthCount; i++) {
+                    const currentDate = new Date(this.startYear, this.startMonth + i, 1);
+                    const year = currentDate.getFullYear();
+                    const month = currentDate.getMonth();
+                    
+                    const firstDay = new Date(year, month, 1).getDay();
+                    const daysInMonth = new Date(year, month + 1, 0).getDate();
+                    const prevMonthDays = new Date(year, month, 0).getDate();
+                    
+                    const monthData = {
+                        year,
+                        month,
+                        monthName: year + '年 ' + monthNames[month],
+                        days: []
+                    };
+                    
+                    // 添加上个月的日期
+                    for (let j = firstDay - 1; j >= 0; j--) {
+                        monthData.days.push({
+                            day: prevMonthDays - j,
+                            year: month === 0 ? year - 1 : year,
+                            month: month === 0 ? 11 : month - 1,
+                            isCurrentMonth: false,
+                            isToday: false,
+                            isCourseDate: false,
+                            isUserMarked: false
+                        });
+                    }
+                    
+                    // 添加当月的日期
+                    for (let day = 1; day <= daysInMonth; day++) {
+                        const isToday = today.getFullYear() === year && 
+                                       today.getMonth() === month && 
+                                       today.getDate() === day;
+                        
+                        // 检查是否是课程日期
+                        const courseInfo = courseDates.find(course => 
+                            course.year === year && course.month === month && course.day === day
+                        );
+                        
+                        // 检查是否是用户标记日期
+                        const isUserMarked = dateMarker.isMarked(year, month, day);
+                        
+                        monthData.days.push({
+                            day,
+                            year,
+                            month,
+                            isCurrentMonth: true,
+                            isToday,
+                            isCourseDate: !!courseInfo,
+                            courseInfo: courseInfo || null,
+                            isUserMarked
+                        });
+                    }
+                    
+                    // 添加下个月的日期
+                    const remainingDays = 42 - monthData.days.length;
+                    for (let day = 1; day <= remainingDays; day++) {
+                        monthData.days.push({
+                            day,
+                            year: month === 11 ? year + 1 : year,
+                            month: month === 11 ? 0 : month + 1,
+                            isCurrentMonth: false,
+                            isToday: false,
+                            isCourseDate: false,
+                            isUserMarked: false
+                        });
+                    }
+                    
+                    this.data.push(monthData);
+                }
+                
+                console.log('✅ 增强日历数据生成完成: ' + this.data.length + '个月份');
+            }
+            
+            render() {
+                if (this.isDestroyed) {
+                    console.warn('⚠️ 尝试渲染已销毁的日历实例');
+                    return;
+                }
+                
+                const container = document.getElementById('calendarGrid');
+                container.className = 'calendar-grid cols-' + this.monthCount;
+                container.innerHTML = '';
+                
+                this.data.forEach((monthData, index) => {
+                    const monthElement = this.createMonthElement(monthData, index);
+                    container.appendChild(monthElement);
+                });
+                
+                console.log('🎨 增强日历渲染完成: ' + this.data.length + '个月份');
+            }
+            
+            createMonthElement(monthData, index) {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'month-calendar';
+                monthDiv.style.animationDelay = (index * 0.1) + 's';
+                
+                const header = document.createElement('div');
+                header.className = 'month-header';
+                header.textContent = monthData.monthName;
+                monthDiv.appendChild(header);
+                
+                const weekdaysDiv = document.createElement('div');
+                weekdaysDiv.className = 'weekdays';
+                weekdays.forEach(function(day) {
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'weekday';
+                    dayDiv.textContent = day;
+                    weekdaysDiv.appendChild(dayDiv);
+                });
+                monthDiv.appendChild(weekdaysDiv);
+                
+                const daysDiv = document.createElement('div');
+                daysDiv.className = 'days';
+                
+                monthData.days.forEach(function(dayData) {
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'day';
+                    dayDiv.textContent = dayData.day;
+                    
+                    if (!dayData.isCurrentMonth) {
+                        dayDiv.classList.add('other-month');
+                    }
+                    
+                    if (dayData.isToday) {
+                        dayDiv.classList.add('today');
+                    }
+                    
+                    if (dayData.isCourseDate) {
+                        dayDiv.classList.add('course-date');
+                        dayDiv.setAttribute('data-lesson', dayData.courseInfo.lesson);
+                        dayDiv.title = dayData.courseInfo.lesson + ' - ' + (dayData.month + 1) + '月' + dayData.day + '日 20:00-21:30';
+                    } else if (dayData.isUserMarked) {
+                        dayDiv.classList.add('user-marked');
+                        dayDiv.title = '用户标记日期 - 点击取消标记';
+                    } else if (dayData.isCurrentMonth) {
+                        dayDiv.title = '点击标记此日期';
+                    }
+                    
+                    dayDiv.addEventListener('click', function() {
+                        document.querySelectorAll('.day.selected').forEach(function(el) {
+                            el.classList.remove('selected');
+                        });
+                        
+                        if (dayData.isCurrentMonth) {
+                            dayDiv.classList.add('selected');
+                            
+                            if (dayData.isCourseDate) {
+                                console.log('📚 选中课程日期: ' + dayData.courseInfo.lesson);
+                                const statusInfo = document.getElementById('statusInfo');
+                                statusInfo.textContent = '已选中课程: ' + dayData.courseInfo.lesson + ' - ' + (dayData.month + 1) + '月' + dayData.day + '日 20:00-21:30';
+                                statusInfo.style.background = '#fef3c7';
+                                statusInfo.style.borderColor = '#fbbf24';
+                                statusInfo.style.color = '#92400e';
+                            } else {
+                                const wasMarked = dateMarker.toggleMark(dayData.year, dayData.month, dayData.day);
+                                dateMarker.saveMarkedDates();
+                                
+                                if (wasMarked) {
+                                    dayDiv.classList.add('user-marked');
+                                    dayDiv.title = '用户标记日期 - 点击取消标记';
+                                    dayData.isUserMarked = true;
+                                } else {
+                                    dayDiv.classList.remove('user-marked');
+                                    dayDiv.title = '点击标记此日期';
+                                    dayData.isUserMarked = false;
+                                }
+                                
+                                updateStatusInfo();
+                            }
+                        }
+                    });
+                    
+                    daysDiv.appendChild(dayDiv);
+                });
+                
+                monthDiv.appendChild(daysDiv);
+                return monthDiv;
+            }
+            
+            destroy() {
+                if (this.isDestroyed) {
+                    return;
+                }
+                
+                console.log('🗑️ 销毁增强日历实例: ' + this.monthCount + '个月');
+                this.data = [];
+                
+                const container = document.getElementById('calendarGrid');
+                if (container) {
+                    container.innerHTML = '<div class="loading">正在销毁旧视图...</div>';
+                }
+                
+                this.isDestroyed = true;
+                console.log('✅ 增强日历实例已完全销毁');
+            }
+        }
+
+        // 更新状态信息
+        function updateStatusInfo() {
+            const statusInfo = document.getElementById('statusInfo');
+            const markedCount = dateMarker.getMarkedDates().length;
+            const monthCount = parseInt(document.getElementById('monthCount').value);
+            const startYear = parseInt(document.getElementById('startYear').value);
+            const startMonth = parseInt(document.getElementById('startMonth').value);
+            
+            statusInfo.textContent = '当前显示: ' + monthCount + '个月 | 起始: ' + startYear + '年' + (startMonth + 1) + '月 | 课程日期: 10个 | 用户标记: ' + markedCount + '个';
+            statusInfo.style.background = '#e8f5e8';
+            statusInfo.style.borderColor = '#c3e6c3';
+            statusInfo.style.color = '#2d5a2d';
+        }
+
+        // 全局更新日历函数
+        function updateCalendar() {
+            const monthCount = parseInt(document.getElementById('monthCount').value);
+            const startYear = parseInt(document.getElementById('startYear').value);
+            const startMonth = parseInt(document.getElementById('startMonth').value);
+            
+            console.log('🔄 开始更新增强日历...');
+            
+            if (currentCalendarInstance) {
+                currentCalendarInstance.destroy();
+                currentCalendarInstance = null;
+            }
+            
+            const container = document.getElementById('calendarGrid');
+            container.innerHTML = '<div class="loading">正在创建新的增强日历视图...</div>';
+            
+            const statusInfo = document.getElementById('statusInfo');
+            const markedCount = dateMarker.getMarkedDates().length;
+            statusInfo.textContent = '正在创建: ' + monthCount + '个月 | 旧视图已完全销毁，新视图正在生成... | 已标记 ' + markedCount + ' 个日期';
+            statusInfo.style.background = '#e8f5e8';
+            statusInfo.style.borderColor = '#c3e6c3';
+            statusInfo.style.color = '#2d5a2d';
+            
+            setTimeout(function() {
+                currentCalendarInstance = new EnhancedCalendarInstance(monthCount, startYear, startMonth);
+                currentCalendarInstance.render();
+                updateStatusInfo();
+                console.log('✅ 增强日历更新完成');
+            }, 500);
+        }
+
+        // 清除所有标记函数
+        function clearAllMarks() {
+            if (confirm('确定要清除所有标记的日期吗？')) {
+                dateMarker.clearAllMarks();
+                updateCalendar();
+            }
+        }
+
+        // 事件监听器
+        document.getElementById('monthCount').addEventListener('change', function() {
+            console.log('📊 月份数已更改为: ' + this.value);
+            updateCalendar();
+        });
+
+        document.getElementById('startYear').addEventListener('change', updateCalendar);
+        document.getElementById('startMonth').addEventListener('change', updateCalendar);
+
+        // 键盘快捷键
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case '1':
+                        document.getElementById('monthCount').value = '1';
+                        updateCalendar();
+                        e.preventDefault();
+                        break;
+                    case '2':
+                        document.getElementById('monthCount').value = '2';
+                        updateCalendar();
+                        e.preventDefault();
+                        break;
+                    case '3':
+                        document.getElementById('monthCount').value = '3';
+                        updateCalendar();
+                        e.preventDefault();
+                        break;
+                }
+            }
+        });
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 AI编程训练营课程日历系统加载完成！');
+            updateCalendar();
+        });
+
+        console.log('📌 功能说明:');
+        console.log('  ✅ 点击任意日期进行标记/取消标记');
+        console.log('  ✅ 紫色背景 + 📌图标 = 用户标记日期');
+        console.log('  ✅ 绿色背景 + 📚图标 = 课程日期');
+        console.log('  ✅ 标记数据自动保存到localStorage');
+        console.log('  ✅ 支持清除所有标记功能');
+        console.log('  ✅ 完全销毁重建机制');
+        console.log('  ✅ 键盘快捷键: Ctrl+1/2/3 快速切换月份数');
+    </script>
+</body>
+</html>

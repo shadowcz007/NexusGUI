@@ -423,6 +423,19 @@ ipcMain.handle('show-item-in-folder', async (event, filePath) => {
     }
 });
 
+// 添加在默认浏览器中打开 URL 的处理程序
+ipcMain.handle('open-external', async (event, url) => {
+    try {
+        const { shell } = require('electron');
+        await shell.openExternal(url);
+        console.log(`✅ 在默认浏览器中打开 URL: ${url}`);
+        return { success: true };
+    } catch (error) {
+        console.error('❌ 在默认浏览器中打开 URL 失败:', error);
+        return { success: false, error: error.message };
+    }
+});
+
 // 处理窗口结果（用于同步等待）
 ipcMain.handle('window-result', async (event, result) => {
     console.log('📤 收到窗口结果:', result);

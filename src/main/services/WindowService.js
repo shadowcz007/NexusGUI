@@ -240,12 +240,16 @@ class WindowService {
                 console.log('📄 使用 HTML 模式渲染');
                 win.webContents.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(config.html)}`);
                 console.log('✅ HTML 内容已直接加载到渲染窗口');
+            } else if (config.url) {
+                console.log('🌐 使用 URL 模式渲染:', config.url);
+                await win.loadURL(config.url);
+                console.log('✅ URL 内容已直接加载到渲染窗口');
             } else {
                 await win.loadFile(path.join(__dirname, '../renderer/index.html'));
                 console.log('✅ HTML 文件加载成功');
             }
         } catch (error) {
-            console.error('❌ HTML 文件加载失败:', error);
+            console.error('❌ 内容加载失败:', error);
             throw error;
         }
     }

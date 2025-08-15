@@ -132,29 +132,15 @@ class HtmlUtils {
         // 检查是否是网络 URL
         if (this.isNetworkUrl(urlContent)) {
             console.log(`🌐 检测到网络 URL: ${urlContent}`);
-            // 对于网络 URL，我们返回一个包含 iframe 的 HTML
-            const iframeHtml = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>网络内容</title>
-                    <style>
-                        body { margin: 0; padding: 0; }
-                        iframe { width: 100%; height: 100vh; border: none; }
-                    </style>
-                </head>
-                <body>
-                    <iframe src="${urlContent}" title="网络内容"></iframe>
-                </body>
-                </html>
-            `;
+            // 对于网络 URL，直接返回 URL，让窗口直接加载，避免 iframe 和 CSP 错误
+            // 这样可以让网站在 Electron 窗口中正常显示，而不是被 CSP 策略阻止
             return {
                 type: 'url',
                 originalType: 'url',
                 subType: 'network',
                 url: urlContent,
-                content: iframeHtml
+                content: urlContent, // 直接返回 URL 而不是包含 iframe 的 HTML
+                directUrl: true // 标识这是一个需要直接加载的 URL
             };
         }
 

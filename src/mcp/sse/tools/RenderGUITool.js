@@ -124,11 +124,20 @@ class RenderGUITool extends BaseToolHandler {
                 opacity: config.opacity,
                 fullscreen: config.fullscreen,
                 zoomFactor: config.zoomFactor,
-                html: processedHtml, 
                 callbacks: config.callbacks,
                 reuseWindow: config.reuseWindow,
                 waitForResult: config.waitForResult
             };
+
+            // 根据处理结果决定使用 HTML 还是 URL
+            if (htmlResult.directUrl) {
+                // 对于网络 URL，直接使用 URL 加载，避免 CSP 错误
+                windowConfig.url = htmlResult.url;
+                this.log('info', `使用直接 URL 模式加载网络内容: ${htmlResult.url}`);
+            } else {
+                // 对于其他类型（本地文件、HTML 字符串等），使用 HTML 内容
+                windowConfig.html = processedHtml;
+            }
 
             this.log('info', 'MCP 调用窗口创建', { 
                 title: config.title, 
@@ -416,7 +425,7 @@ class RenderGUITool extends BaseToolHandler {
                 return '\n📝 内容来源: HTML 字符串';
             case 'url':
                 if (inputType.includes('network')) {
-                    return '\n🌐 内容来源: 网络 URL';
+                    return '\n🌐 内容来源: 网络 URL (直接加载)';
                 } else if (inputType.includes('html-file')) {
                     return '\n📁 内容来源: HTML 文件';
                 } else if (inputType.includes('markdown-file')) {

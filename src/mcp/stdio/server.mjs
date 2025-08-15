@@ -39,21 +39,21 @@ function processContentInput(type, content) {
     switch (type) {
         case 'html':
             return processHtmlContent(content);
-        
+
         case 'url':
             return processUrlContent(content);
-        
+
         case 'markdown':
             return processMarkdownContent(content);
-        
+
         case 'image':
             return processImageContent(content);
-        
+
         case 'auto':
             // auto 类型需要异步处理，在 stdio 服务器中暂时回退到 html 处理
             console.warn('警告: stdio 服务器中的 auto 类型暂时回退到 html 处理');
             return processHtmlContent(content);
-        
+
         default:
             throw new Error(`不支持的内容类型: ${type}`);
     }
@@ -78,29 +78,15 @@ function processUrlContent(urlContent) {
     // 检查是否是网络 URL
     if (isNetworkUrl(urlContent)) {
         console.log(`🌐 检测到网络 URL: ${urlContent}`);
-        // 对于网络 URL，我们返回一个包含 iframe 的 HTML
-        const iframeHtml = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="UTF-8">
-                <title>网络内容</title>
-                <style>
-                    body { margin: 0; padding: 0; }
-                    iframe { width: 100%; height: 100vh; border: none; }
-                </style>
-            </head>
-            <body>
-                <iframe src="${urlContent}" title="网络内容"></iframe>
-            </body>
-            </html>
-        `;
+        // 对于网络 URL，直接返回 URL，让窗口直接加载，避免 iframe 和 CSP 错误
+        // 这样可以让网站在 Electron 窗口中正常显示，而不是被 CSP 策略阻止
         return {
             type: 'url',
             originalType: 'url',
             subType: 'network',
             url: urlContent,
-            content: iframeHtml
+            content: urlContent, // 直接返回 URL 而不是包含 iframe 的 HTML
+            directUrl: true // 标识这是一个需要直接加载的 URL
         };
     }
 
@@ -111,7 +97,7 @@ function processUrlContent(urlContent) {
             const resolvedPath = path.resolve(urlContent);
             const fileContent = fs.readFileSync(resolvedPath, 'utf8');
             const fileExt = path.extname(urlContent).toLowerCase();
-            
+
             // 根据文件扩展名处理不同类型的文件
             if (['.html', '.htm'].includes(fileExt)) {
                 console.log(`✅ 成功读取 HTML 文件，内容长度: ${fileContent.length}`);
@@ -172,10 +158,10 @@ function processUrlContent(urlContent) {
 // 处理 Markdown 内容
 function processMarkdownContent(markdownContent) {
     console.log(`📄 处理 Markdown 内容，长度: ${markdownContent.length}`);
-    
+
     // 将 Markdown 转换为 HTML
     const htmlContent = convertMarkdownToHtml(markdownContent);
-    
+
     return {
         type: 'markdown',
         originalType: 'markdown',
@@ -276,11 +262,11 @@ function isNetworkUrl(input) {
 
 // 检查是否是本地文件路径
 function isLocalFilePath(input) {
-    return typeof input === 'string' && 
-           (input.includes('/') || input.includes('\\') || input.includes('.')) &&
-           !isNetworkUrl(input) &&
-           !input.includes('<') && 
-           !input.includes('>');
+    return typeof input === 'string' &&
+        (input.includes('/') || input.includes('\\') || input.includes('.')) &&
+        !isNetworkUrl(input) &&
+        !input.includes('<') &&
+        !input.includes('>');
 }
 
 // 检查是否是图片文件路径
@@ -295,9 +281,9 @@ function isImageFilePath(input) {
 
 // 检查是否是 base64 图片数据
 function isBase64Image(input) {
-    return typeof input === 'string' && 
-           input.startsWith('data:image/') && 
-           input.includes('base64,');
+    return typeof input === 'string' &&
+        input.startsWith('data:image/') &&
+        input.includes('base64,');
 }
 
 // 转义 HTML 特殊字符
@@ -316,37 +302,37 @@ function escapeHtml(text) {
 function convertMarkdownToHtml(markdown) {
     // 这是一个简单的 Markdown 转 HTML 实现
     // 在实际项目中，建议使用专业的 Markdown 解析库如 marked 或 markdown-it
-    
+
     let html = markdown
         // 标题
         .replace(/^### (.*$)/gim, '<h3>$1</h3>')
         .replace(/^## (.*$)/gim, '<h2>$1</h2>')
         .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-        
+
         // 粗体和斜体
         .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
         .replace(/\*(.*?)\*/g, '<em>$1</em>')
-        
+
         // 代码块
         .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
         .replace(/`(.*?)`/g, '<code>$1</code>')
-        
+
         // 链接
         .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
-        
+
         // 引用
         .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
-        
+
         // 列表项
         .replace(/^\* (.*$)/gim, '<li>$1</li>')
         .replace(/^- (.*$)/gim, '<li>$1</li>')
-        
+
         // 换行
         .replace(/\n/g, '<br>');
 
     // 包装列表项
     html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
-    
+
     // 创建完整的 HTML 文档
     const fullHtml = `
         <!DOCTYPE html>
@@ -399,7 +385,7 @@ function convertMarkdownToHtml(markdown) {
         </body>
         </html>
     `;
-    
+
     return fullHtml;
 }
 
@@ -410,7 +396,7 @@ function getInputTypeInfo(inputType, args) {
             return '\n📝 内容来源: HTML 字符串';
         case 'url':
             if (inputType.includes('network')) {
-                return '\n🌐 内容来源: 网络 URL';
+                return '\n🌐 内容来源: 网络 URL (直接加载)';
             } else if (inputType.includes('html-file')) {
                 return '\n📁 内容来源: HTML 文件';
             } else if (inputType.includes('markdown-file')) {
@@ -568,10 +554,11 @@ async function handleRenderGUI(args) {
     let processedHtml;
     let inputType;
 
+    let htmlResult;
     try {
-        const result = processContentInput(type, content);
-        processedHtml = result.content;
-        inputType = `${result.type}${result.subType ? `(${result.subType})` : ''}`;
+        htmlResult = processContentInput(type, content);
+        processedHtml = htmlResult.content;
+        inputType = `${htmlResult.type}${htmlResult.subType ? `(${htmlResult.subType})` : ''}`;
         console.log(`📋 处理内容: type=${type}, inputType=${inputType}`);
     } catch (error) {
         throw new Error(`内容输入处理失败: ${error.message}`);
@@ -602,15 +589,26 @@ async function handleRenderGUI(args) {
         try {
             console.log('🌐 MCP 调用窗口创建:', { title, width, height, inputType });
 
-            await global.createWindow({
+            const windowConfig = {
                 type: 'dynamic',
                 title,
                 width,
                 height,
-                html: processedHtml,
                 data,
                 callbacks
-            });
+            };
+
+            // 根据处理结果决定使用 HTML 还是 URL
+            if (htmlResult.directUrl) {
+                // 对于网络 URL，直接使用 URL 加载，避免 CSP 错误
+                windowConfig.url = htmlResult.url;
+                console.log(`🌐 使用直接 URL 模式加载网络内容: ${htmlResult.url}`);
+            } else {
+                // 对于其他类型（本地文件、HTML 字符串等），使用 HTML 内容
+                windowConfig.html = processedHtml;
+            }
+
+            await global.createWindow(windowConfig);
 
             console.log('✅ MCP 窗口创建成功');
 
