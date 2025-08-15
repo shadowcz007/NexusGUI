@@ -181,7 +181,13 @@ class AppStateService {
                     data: guiData.config?.data,
                     callbacks: guiData.config?.callbacks
                 },
-                hasHtml: !!guiData.html
+                hasHtml: !!guiData.html,
+                // 保存类型和 URL 信息，用于正确的历史记录渲染
+                type: guiData.type || 'html',
+                originalType: guiData.originalType,
+                subType: guiData.subType,
+                url: guiData.url,
+                directUrl: guiData.directUrl
             };
 
             // 根据配置决定是否保存HTML内容

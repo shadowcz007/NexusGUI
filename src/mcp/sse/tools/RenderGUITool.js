@@ -94,7 +94,7 @@ class RenderGUITool extends BaseToolHandler {
             this.log('info', `处理内容: type=${config.type}, inputType=${inputType}`);
 
             // 缓存HTML内容到全局
-            this.cacheHtml(processedHtml, config);
+            this.cacheHtml(processedHtml, config, htmlResult);
 
             // 检查主进程支持
             if (!global.createWindow) {
@@ -210,8 +210,9 @@ class RenderGUITool extends BaseToolHandler {
      * 缓存HTML内容到全局并生成Markdown缓存
      * @param {string} html - HTML内容
      * @param {Object} config - 窗口配置
+     * @param {Object} htmlResult - 处理结果，包含类型信息
      */
-    cacheHtml(html, config) {
+    cacheHtml(html, config, htmlResult = {}) {
         try {
             // 转换HTML为Markdown
             const markdown = MarkdownUtils.convertHtmlToMarkdown(html);
@@ -219,7 +220,7 @@ class RenderGUITool extends BaseToolHandler {
             // 保存Markdown到临时目录
             const markdownSaveResult = MarkdownUtils.saveMarkdownToTemp(markdown, config.title);
             
-            // 更新全局缓存，包含Markdown信息
+            // 更新全局缓存，包含Markdown信息和类型信息
             global.renderGuiCache = {
                 html: html,
                 markdown: {
@@ -236,6 +237,12 @@ class RenderGUITool extends BaseToolHandler {
                     height: config.height, 
                     callbacks: config.callbacks
                 },
+                // 保存类型信息，用于历史记录正确渲染
+                type: htmlResult.type || config.type || 'html',
+                originalType: htmlResult.originalType,
+                subType: htmlResult.subType,
+                url: htmlResult.url,
+                directUrl: htmlResult.directUrl,
                 timestamp: new Date().toISOString()
             };
             
@@ -265,6 +272,12 @@ class RenderGUITool extends BaseToolHandler {
                     height: config.height, 
                     callbacks: config.callbacks
                 },
+                // 保存类型信息，用于历史记录正确渲染
+                type: htmlResult.type || config.type || 'html',
+                originalType: htmlResult.originalType,
+                subType: htmlResult.subType,
+                url: htmlResult.url,
+                directUrl: htmlResult.directUrl,
                 timestamp: new Date().toISOString()
             };
             

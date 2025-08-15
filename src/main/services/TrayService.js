@@ -427,50 +427,81 @@ class TrayService {
                 return;
             }
 
-            // 检查历史记录中是否有HTML内容
-            if (historyItem.html && historyItem.hasHtml) {
-                // 直接使用历史记录中的HTML内容
+            // 根据历史记录的类型信息决定渲染方式
+            const windowConfig = {
+                type: 'dynamic',
+                title: historyItem.config.title,
+                width: historyItem.config.width,
+                height: historyItem.config.height,
+                callbacks: historyItem.config.callbacks,
+                reuseWindow: true,
+                waitForResult: false
+            };
+
+            // 检查是否是网络 URL 类型且需要直接加载
+            if (historyItem.directUrl && historyItem.url) {
+                // 对于网络 URL，直接使用 URL 加载
+                windowConfig.url = historyItem.url;
+                this.logger.info(`从历史记录直接加载网络 URL: ${historyItem.url}`);
+            } else if (historyItem.html && historyItem.hasHtml) {
+                // 对于其他类型，使用 HTML 内容
+                windowConfig.html = historyItem.html;
+                this.logger.info(`从历史记录加载 HTML 内容: ${historyItem.config.title}`);
+            } else {
+                // 没有可用内容，尝试从全局缓存获取
+                this.logger.warn(`历史记录中没有可用内容: ${historyItem.config.title}`);
+                this.tryRenderFromGlobalCache(historyItem);
+                return;
+            }
+
+            await global.createWindow(windowConfig);
+            this.logger.info(`已从历史记录渲染界面: ${historyItem.config.title}`);
+        } catch (error) {
+            this.logger.error('从历史记录渲染界面失败', { error: error.message });
+        }
+    }
+
+    /**
+     * 尝试从全局缓存渲染（向后兼容）
+     * @param {Object} historyItem - 历史记录项
+     */
+    async tryRenderFromGlobalCache(historyItem) {
+        try {
+            // 尝试从全局缓存获取（向后兼容）
+            if (global.renderGuiCache &&
+                global.renderGuiCache.config.title === historyItem.config.title) {
+                
                 const windowConfig = {
                     type: 'dynamic',
-                    title: historyItem.config.title,
-                    width: historyItem.config.width,
-                    height: historyItem.config.height,
-                    html: historyItem.html,
-                    callbacks: historyItem.config.callbacks,
+                    title: global.renderGuiCache.config.title,
+                    width: global.renderGuiCache.config.width,
+                    height: global.renderGuiCache.config.height,
+                    callbacks: global.renderGuiCache.config.callbacks,
                     reuseWindow: true,
                     waitForResult: false
                 };
 
-                await global.createWindow(windowConfig);
-                this.logger.info(`已从历史记录渲染界面: ${historyItem.config.title}`);
-            } else {
-                // 尝试从全局缓存获取（向后兼容）
-                if (global.renderGuiCache &&
-                    global.renderGuiCache.config.title === historyItem.config.title) {
-                    const windowConfig = {
-                        type: 'dynamic',
-                        title: global.renderGuiCache.config.title,
-                        width: global.renderGuiCache.config.width,
-                        height: global.renderGuiCache.config.height,
-                        html: global.renderGuiCache.html,
-                        callbacks: global.renderGuiCache.config.callbacks,
-                        reuseWindow: true,
-                        waitForResult: false
-                    };
-
-                    await global.createWindow(windowConfig);
-                    this.logger.info(`已从缓存渲染历史界面: ${historyItem.config.title}`);
+                // 根据全局缓存的类型信息决定渲染方式
+                if (global.renderGuiCache.directUrl && global.renderGuiCache.url) {
+                    windowConfig.url = global.renderGuiCache.url;
+                    this.logger.info(`从全局缓存直接加载网络 URL: ${global.renderGuiCache.url}`);
                 } else {
-                    // 没有HTML内容，提示用户
-                    this.showNotification(
-                        '历史记录',
-                        `无法重新渲染 "${historyItem.config.title}"，HTML内容已丢失。请重新使用render-gui工具渲染界面。`
-                    );
-                    this.logger.warn(`历史记录中没有HTML内容: ${historyItem.config.title}`);
+                    windowConfig.html = global.renderGuiCache.html;
+                    this.logger.info(`从全局缓存加载 HTML 内容: ${global.renderGuiCache.config.title}`);
                 }
+
+                await global.createWindow(windowConfig);
+                this.logger.info(`已从缓存渲染历史界面: ${historyItem.config.title}`);
+            } else {
+                // 没有可用内容，提示用户
+                this.showNotification(
+                    '历史记录',
+                    `无法重新渲染 "${historyItem.config.title}"，内容已丢失。请重新使用 render-gui 工具渲染界面。`
+                );
+                this.logger.warn(`历史记录和全局缓存中都没有可用内容: ${historyItem.config.title}`);
             }
         } catch (error) {
-            this.logger.error('从历史记录渲染界面失败', { error: error.message });
+            this.logger.error('从全局缓存渲染界面失败', { error: error.message });
         }
     }
 
