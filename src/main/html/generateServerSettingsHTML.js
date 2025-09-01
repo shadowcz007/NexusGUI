@@ -1,6 +1,6 @@
 // 生成服务器设置窗口HTML
 function generateServerSettingsHTML(currentSettings) {
-  
+
     return `
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -18,7 +18,7 @@ function generateServerSettingsHTML(currentSettings) {
             color: #333;
         }
         .container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 16px;
@@ -100,53 +100,97 @@ function generateServerSettingsHTML(currentSettings) {
         .toggle.active::after {
             transform: translateX(26px);
         }
+        .setting-hint {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .mcp-config-section {
+            margin-top: 15px;
+        }
+        .mcp-config-textarea {
+            width: 100%;
+            min-height: 300px;
+            padding: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            resize: vertical;
+            background: #f9fafb;
+        }
+        .mcp-config-textarea:focus {
+            outline: none;
+            border-color: #f59e0b;
+            background: white;
+        }
+        .mcp-config-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        .mcp-config-status {
+            margin-top: 10px;
+        }
+        .status-message {
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-weight: 500;
+            display: none;
+        }
+        .status-message.status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+        .status-message.status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fca5a5;
+            display: block;
+        }
+        .status-message.status-info {
+            background: #dbeafe;
+            color: #1e40af;
+            border: 1px solid #93c5fd;
+            display: block;
+        }
+        .actions {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+        }
         .btn {
-            padding: 10px 20px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
-            margin: 5px;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            font-size: 1rem;
         }
         .btn-primary {
             background: #f59e0b;
             color: white;
         }
+        .btn-primary:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
         .btn-secondary {
             background: #6b7280;
             color: white;
         }
-        .btn:hover {
-            opacity: 0.8;
+        .btn-secondary:hover {
+            background: #4b5563;
             transform: translateY(-1px);
         }
         .btn:disabled {
-            opacity: 0.5;
+            opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
-        }
-        .actions {
-            text-align: center;
-            margin-top: 30px;
-        }
-        .status-message {
-            margin-top: 15px;
-            padding: 10px;
-            border-radius: 6px;
-            text-align: center;
-            font-weight: 500;
-            display: none;
-        }
-        .status-success {
-            background: #d1fae5;
-            color: #065f46;
-            border: 1px solid #a7f3d0;
-        }
-        .status-error {
-            background: #fee2e2;
-            color: #991b1b;
-            border: 1px solid #fecaca;
         }
         .loading {
             display: inline-block;
@@ -173,9 +217,15 @@ function generateServerSettingsHTML(currentSettings) {
         <div class="setting-group">
             <div class="setting-title">网络设置</div>
             <div class="setting-item">
-                <span class="setting-label">监听端口</span>
+                <span class="setting-label">SSE服务器端口</span>
                 <div class="setting-control">
                     <input type="number" id="server-port" value="${currentSettings.server.port}" min="1000" max="65535">
+                </div>
+            </div>
+            <div class="setting-item">
+                <span class="setting-label">MCP服务器端口</span>
+                <div class="setting-control">
+                    <input type="number" id="mcp-port" value="${currentSettings.mcp.port}" min="1000" max="65535">
                 </div>
             </div>
             <div class="setting-item">
@@ -194,6 +244,37 @@ function generateServerSettingsHTML(currentSettings) {
                 <span class="setting-label">会话超时(秒)</span>
                 <div class="setting-control">
                     <input type="number" id="session-timeout" value="${currentSettings.server.sessionTimeout}" min="60" max="7200">
+                </div>
+            </div>
+        </div>
+        
+        <div class="setting-group">
+            <div class="setting-title">启用 MCP 聚合服务</div>
+            <div class="mcp-config-section">
+                <div class="setting-label" style="margin-bottom: 10px;">配置文件 (JSON 格式)</div>
+                <textarea 
+                    id="mcp-config-input" 
+                    class="mcp-config-textarea"
+                    placeholder="请粘贴或输入 MCP 配置文件 (JSON 格式)..."
+                >${JSON.stringify(currentSettings.mcp.config, null, 2)}</textarea>
+                
+                <div class="mcp-config-actions">
+                    <button class="btn btn-secondary" onclick="validateMCPConfig()">
+                        <i class="icon-check"></i> 验证配置
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetMCPConfig()">
+                        <i class="icon-refresh"></i> 重置为默认
+                    </button>
+                    <button class="btn btn-secondary" onclick="loadExampleMCPConfig()">
+                        <i class="icon-file"></i> 加载示例
+                    </button>
+                     <button class="btn btn-secondary" onclick="startMCPConfig()">
+                        <i class="icon-play"></i> 启动
+                    </button>
+                </div>
+                
+                <div class="mcp-config-status">
+                    <div id="mcp-config-status-message" class="status-message"></div>
                 </div>
             </div>
         </div>
@@ -253,13 +334,13 @@ function generateServerSettingsHTML(currentSettings) {
             <div class="setting-item">
                 <span class="setting-label">API URL</span>
                 <div class="setting-control">
-                    <input type="text" id="llm-api-url" value="${currentSettings.llm.apiUrl}" placeholder="https://api.openai.com/v1/chat/completions">
+                    <input type="text" id="llm-api-url" value="${currentSettings.llm.apiUrl}" placeholder="https://api.openai.com/v1">
                 </div>
             </div>
             <div class="setting-item">
                 <span class="setting-label">API Key</span>
                 <div class="setting-control">
-                    <input type="password" id="llm-api-key" value="${currentSettings.llm.apiKey}" placeholder="sk-...">
+                    <input type="text" id="llm-api-key" value="${currentSettings.llm.apiKey}" placeholder="sk-...">
                 </div>
             </div>
             <div class="setting-item">
@@ -294,6 +375,93 @@ function generateServerSettingsHTML(currentSettings) {
             }, 5000);
         }
         
+        function showMCPConfigStatus(message, type = 'info') {
+            const messageElement = document.getElementById('mcp-config-status-message');
+            if (messageElement) {
+                messageElement.textContent = message;
+                messageElement.className = \`status-message status-\${type}\`;
+                
+                setTimeout(() => {
+                    messageElement.textContent = '';
+                    messageElement.className = 'status-message';
+                }, 3000);
+            }
+        }
+        
+        function validateMCPConfig() {
+            try {
+                const configText = document.getElementById('mcp-config-input').value;
+                const config = JSON.parse(configText);
+                showMCPConfigStatus('配置格式正确', 'success');
+            } catch (error) {
+                showMCPConfigStatus('配置验证失败: ' + error.message, 'error');
+            }
+        }
+        
+        function resetMCPConfig() {
+            const defaultConfig = {
+                "mcpServers": {
+                    "nexusgui-core": {
+                        "url": "http://127.0.0.1:3000"
+                    }
+                },
+                "serverInfo": {
+                    "serverName": "nexusgui-mcp-server",
+                    "version": "1.0.0",
+                    "description": "NexusGUI MCP 服务器",
+                    "author": "shadow"
+                },
+                "tools": [],
+                "namespace": ".",
+                "toolChains": []
+            };
+            document.getElementById('mcp-config-input').value = JSON.stringify(defaultConfig, null, 2);
+            showMCPConfigStatus('已重置为默认配置', 'info');
+        }
+        
+        function startMCPConfig() {
+            window.electronAPI.startMCPServer();
+        }
+        
+        function loadExampleMCPConfig() {
+            const exampleConfig = {
+                "mcpServers": {
+                    "nexusgui-core": {
+                        "url": "http://127.0.0.1:3000"
+                    },
+                    "filesystem-server": {
+                        "command": "npx",
+                        "args": ["@modelcontextprotocol/server-filesystem", "--transport", "stdio"]
+                    },
+                    "playwright-server": {
+                        "command": "npx",
+                        "args": ["@playwright/mcp", "--transport", "stdio"]
+                    }
+                },
+                "serverInfo": {
+                    "serverName": "nexusgui-mcp-server",
+                    "version": "1.0.0",
+                    "description": "NexusGUI 增强 MCP 服务器",
+                    "author": "shadow"
+                },
+                "tools": [],
+                "namespace": ".",
+                "toolChains": [
+                    {
+                        "name": "create_gui_with_data",
+                        "description": "创建带数据的 GUI 界面",
+                        "steps": [
+                            { "toolName": "read_file", "args": {}, "outputMapping": { "fileContent": "content.0.text" } },
+                            { "toolName": "render-gui", "args": {}, "outputMapping": { "html": "content.0.text" }, "fromStep": 0 }
+                        ],
+                        "output": { "steps": [1] }
+                    }
+                ]
+            };
+            document.getElementById('mcp-config-input').value = JSON.stringify(exampleConfig, null, 2);
+            showMCPConfigStatus('已加载示例配置', 'info');
+        }
+        
         function setLoading(isLoading) {
             const saveBtn = document.getElementById('save-btn');
             const resetBtn = document.getElementById('reset-btn');
@@ -316,9 +484,11 @@ function generateServerSettingsHTML(currentSettings) {
                 // 收集所有设置
                 const settings = {
                     'server.port': parseInt(document.getElementById('server-port').value),
+                    'mcp.port': parseInt(document.getElementById('mcp-port').value),
                     'server.enableCors': document.getElementById('enable-cors').classList.contains('active'),
                     'server.maxConnections': parseInt(document.getElementById('max-connections').value),
                     'server.sessionTimeout': parseInt(document.getElementById('session-timeout').value),
+                    'mcp.config': document.getElementById('mcp-config-input').value,
                     'logging.enableVerbose': document.getElementById('enable-verbose').classList.contains('active'),
                     'logging.level': document.getElementById('log-level').value,
                     'ui.alwaysOnTop': document.getElementById('always-on-top').classList.contains('active'),
@@ -338,7 +508,10 @@ function generateServerSettingsHTML(currentSettings) {
                 if (result.success) {
                     let message = result.message;
                     if (result.serverRestarted) {
-                        message += '\\n服务器已在新端口上重启';
+                        message += '\\nSSE服务器已在新端口上重启';
+                    }
+                    if (result.mcpServerRestarted) {
+                        message += '\\nMCP服务器已重启以应用新配置';
                     }
                     showStatus(message);
                 } else {
@@ -399,4 +572,4 @@ function generateServerSettingsHTML(currentSettings) {
 }
 
 
-module.exports =  { generateServerSettingsHTML}
+module.exports = { generateServerSettingsHTML }

@@ -164,6 +164,34 @@ function generateMCPDashboardHTML(mcpInfo) {
             font-size: 0.9rem;
         }
         
+        .config-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .config-note-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #856404;
+            display: flex;
+            align-items: center;
+        }
+        
+        .config-note-title::before {
+            content: '⚙️';
+            margin-right: 10px;
+        }
+        
+        .config-note-text {
+            color: #856404;
+            line-height: 1.6;
+        }
+        
         .error-card {
             background: #fef2f2;
             border: 1px solid #fecaca;
@@ -253,6 +281,36 @@ function generateMCPDashboardHTML(mcpInfo) {
             transform: translateY(-1px);
         }
         
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+        
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-1px);
+        }
+        
+        .btn-info {
+            background: #06b6d4;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #0891b2;
+            transform: translateY(-1px);
+        }
+        
         .footer {
             text-align: center;
             margin-top: 30px;
@@ -324,6 +382,14 @@ function generateMCPDashboardHTML(mcpInfo) {
             ${endpointsHTML}
         </div>
         ` : ''}
+        
+        <div class="config-note">
+            <div class="config-note-title">配置管理</div>
+            <div class="config-note-text">
+                <p><strong>注意：</strong>MCP配置文件功能已移至服务器设置中。</p>
+                <p>请在托盘菜单 → 设置 → 服务器设置中进行MCP配置管理，包括端口设置和JSON配置文件编辑。</p>
+            </div>
+        </div>
         
         <div class="actions-card">
             <div class="actions-title">快速操作</div>

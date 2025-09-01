@@ -56,8 +56,8 @@ After startup, the application will launch an MCP server at `http://localhost:30
 - ✅ Integrated health check, debug info, session management tools
 - ✅ Support server settings and configuration management
 - ✅ Cross-platform support (macOS, Windows, Linux)
-- ✅ Add recent rendered interface history, support quick re-rendering
-- ✅ Provide "quick test" feature, render predefined test interfaces
+
+
 - ✅ Add network status indicator, display connection status with AI tools
 
 ### Direct HTML Rendering Mode 🆕

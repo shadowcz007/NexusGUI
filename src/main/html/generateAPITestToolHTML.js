@@ -35,9 +35,9 @@ function sanitizeId(str) {
 function generateAPITestToolHTML(tools = []) {
     // 检查工具列表状态
     const hasTools = Array.isArray(tools) && tools.length > 0;
-    const statusMessage = hasTools
-        ? `已加载 ${tools.length} 个工具`
-        : '工具注册器未初始化或没有可用工具';
+    const statusMessage = hasTools ?
+        `已加载 ${tools.length} 个工具` :
+        '工具注册器未初始化或没有可用工具';
 
     // 生成工具选择选项
     const toolOptions = hasTools ? tools.map(tool => {
@@ -610,9 +610,7 @@ function generateAPITestToolHTML(tools = []) {
                 'render-history': {
                     action: 'list'
                 },
-                'quick-test': {
-                    testType: 'basic'
-                },
+
                 'network-status': {},
                 'debug-logs': {
                     lines: 50,

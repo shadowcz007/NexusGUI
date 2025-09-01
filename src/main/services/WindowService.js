@@ -1,7 +1,8 @@
 const { BrowserWindow } = require('electron');
 const path = require('path');
 
-const { generateSessionManagerHTML,
+const {
+    generateSessionManagerHTML,
     generateDebugWindowHTML,
     generateMCPDashboardHTML,
     generateServerSettingsHTML,
@@ -563,6 +564,8 @@ class WindowService {
             throw error;
         }
     }
+
+
 
     /**
      * 显示会话管理窗口

@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "nexusgui-core": {
+      "url": "http://127.0.0.1:3000"
+    },
+    "filesystem-server": {
+      "command": "npx",
+      "args": ["@modelcontextprotocol/server-filesystem", "--transport", "stdio"]
+    },
+    "playwright-server": {
+      "command": "npx",
+      "args": ["@playwright/mcp", "--transport", "stdio"]
+    }
+  },
+  "serverInfo": {
+    "serverName": "nexusgui-mcp-server",
+    "version": "1.0.0",
+    "description": "NexusGUI 增强 MCP 服务器",
+    "author": "shadow"
+  },
+  "tools": [],
+  "namespace": ".",
+  "toolChains": [
+    {
+      "name": "create_gui_with_data",
+      "description": "创建带数据的 GUI 界面",
+      "steps": [
+        { "toolName": "read_file", "args": {}, "outputMapping": { "fileContent": "content.0.text" } },
+        { "toolName": "render-gui", "args": {}, "outputMapping": { "html": "content.0.text" }, "fromStep": 0 }
+      ],
+      "output": { "steps": [1] }
+    }
+  ]
+}

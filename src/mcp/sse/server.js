@@ -12,7 +12,7 @@ const InjectJSTool = require('./tools/InjectJSTool');
 const NotificationTool = require('./tools/NotificationTool');
 const ShowInFileManagerTool = require('./tools/ShowInFileManagerTool');
 const RenderHistoryTool = require('./tools/RenderHistoryTool');
-const QuickTestTool = require('./tools/QuickTestTool');
+
 const NetworkStatusTool = require('./tools/NetworkStatusTool');
 const DebugLogsTool = require('./tools/DebugLogsTool');
 const MonitorInfoTool = require('./tools/MonitorInfoTool');
@@ -30,16 +30,19 @@ let globalToolRegistry = null;
 // Initialize modules
 async function initializeModules() {
     if (!Server) {
-        const sdkServer = await import('@modelcontextprotocol/sdk/server/index.js');
+        const sdkServer = await
+        import ('@modelcontextprotocol/sdk/server/index.js');
         Server = sdkServer.Server;
 
-        const sdkTypes = await import('@modelcontextprotocol/sdk/types.js');
+        const sdkTypes = await
+        import ('@modelcontextprotocol/sdk/types.js');
         CallToolRequestSchema = sdkTypes.CallToolRequestSchema;
         ErrorCode = sdkTypes.ErrorCode;
         ListToolsRequestSchema = sdkTypes.ListToolsRequestSchema;
         McpError = sdkTypes.McpError;
 
-        const sseTransport = await import('./transport.js');
+        const sseTransport = await
+        import ('./transport.js');
         SSEServerTransport = sseTransport.SSEServerTransport;
     }
 }
@@ -48,9 +51,9 @@ async function initializeModules() {
 async function initializeToolRegistry() {
     if (!globalToolRegistry) {
         console.log('🔧 初始化工具注册器...');
-        
+
         globalToolRegistry = new ToolRegistry();
-         
+
         // 注册所有工具
         globalToolRegistry.register(new RenderGUITool());
         globalToolRegistry.register(new GetContextTool());
@@ -63,14 +66,14 @@ async function initializeToolRegistry() {
         // globalToolRegistry.register(new MonitorInfoTool());
         // globalToolRegistry.register(new TestTool());
         // globalToolRegistry.register(new NotificationTool());
-        
+
         // 初始化所有工具
         await globalToolRegistry.initialize();
-        
+
         console.log('✅ 工具注册器初始化完成');
         console.log('📊 工具统计:', globalToolRegistry.getStats());
     }
-    
+
     return globalToolRegistry;
 }
 
@@ -112,7 +115,7 @@ const getServer = async() => {
                     return await notificationTool.execute(args, server);
                 }
             }
-            
+
             // 使用工具注册器执行工具
             return await toolRegistry.executeTool(name, args);
         } catch (error) {
@@ -190,12 +193,12 @@ function startNetworkStatusUpdater(appStateService) {
     if (networkStatusInterval) {
         clearInterval(networkStatusInterval);
     }
-    
+
     networkStatusInterval = setInterval(() => {
         if (appStateService) {
             const activeSessions = Object.keys(transports).length;
             const now = new Date().toISOString();
-            
+
             // 更新网络状态
             appStateService.updateNetworkStatus({
                 activeSessions: activeSessions,
@@ -220,15 +223,15 @@ async function createServer(port = 3001) {
     if (global.appStateService) {
         startNetworkStatusUpdater(global.appStateService);
     }
-    
+
     // 在启动服务器之前确保工具注册器已初始化
     await initializeToolRegistry();
-    
+
     // 确保工具注册器在全局可访问
     if (globalToolRegistry) {
         global.toolRegistry = globalToolRegistry;
     }
-    
+
     // SSE 端点：建立流连接
     app.get('/mcp', async(req, res) => {
         // console.log('收到 GET 请求到 /mcp (建立 SSE 流)');
@@ -250,7 +253,7 @@ async function createServer(port = 3001) {
                     delete transports[transport.sessionId];
                     console.log(`🗑️ 已从传输层存储中删除会话 ${transport.sessionId}`);
                 }
-                
+
                 // 更新网络状态
                 if (global.appStateService) {
                     const activeSessions = Object.keys(transports).length;
@@ -382,13 +385,13 @@ async function createServer(port = 3001) {
             }))
         };
         console.log(`🏥 健康检查:`, healthInfo);
-        
+
         // 检查是否请求JSON格式
         if (req.headers.accept && req.headers.accept.includes('application/json')) {
             res.json(healthInfo);
             return;
         }
-        
+
         // 返回HTML格式的健康检查页面
         const html = `
 <!DOCTYPE html>
@@ -523,44 +526,44 @@ async function createServer(port = 3001) {
     </script>
 </body>
 </html>`;
-        
+
         res.send(html);
     });
 
     // 调试端点：显示所有活动会话
     app.get('/debug/sessions', (req, res) => {
-        try {
-            const debugInfo = {
-                totalSessions: Object.keys(transports).length,
-                timestamp: new Date().toISOString(),
-                server: {
-                    name: `${packageJson.name}-sse-server`,
-                    version: packageJson.version,
-                    port: port || 3001
-                },
-                sessions: Object.keys(transports).map(id => {
-                    const transport = transports[id];
-                    return {
-                        sessionId: id,
-                        isConnected: transport ? (transport.isConnected || false) : false,
-                        hasSDKTransport: transport ? (!!transport.sdkTransport) : false,
-                        sessionIdFromTransport: transport ? (transport.sessionId || null) : null,
-                        createdAt: transport ? (transport.createdAt || null) : null,
-                        lastActivity: transport ? (transport.lastActivity || null) : null
+                try {
+                    const debugInfo = {
+                        totalSessions: Object.keys(transports).length,
+                        timestamp: new Date().toISOString(),
+                        server: {
+                            name: `${packageJson.name}-sse-server`,
+                            version: packageJson.version,
+                            port: port || 3001
+                        },
+                        sessions: Object.keys(transports).map(id => {
+                            const transport = transports[id];
+                            return {
+                                sessionId: id,
+                                isConnected: transport ? (transport.isConnected || false) : false,
+                                hasSDKTransport: transport ? (!!transport.sdkTransport) : false,
+                                sessionIdFromTransport: transport ? (transport.sessionId || null) : null,
+                                createdAt: transport ? (transport.createdAt || null) : null,
+                                lastActivity: transport ? (transport.lastActivity || null) : null
+                            };
+                        })
                     };
-                })
-            };
-            
-            console.log(`🐛 调试信息:`, debugInfo);
-            
-            // 检查是否请求JSON格式
-            if (req.headers.accept && req.headers.accept.includes('application/json')) {
-                res.json(debugInfo);
-                return;
-            }
-            
-            // 返回HTML格式的调试页面
-            const sessionsHTML = debugInfo.sessions.map(session => `
+
+                    console.log(`🐛 调试信息:`, debugInfo);
+
+                    // 检查是否请求JSON格式
+                    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+                        res.json(debugInfo);
+                        return;
+                    }
+
+                    // 返回HTML格式的调试页面
+                    const sessionsHTML = debugInfo.sessions.map(session => `
                 <div class="session-card ${session.isConnected ? 'connected' : 'disconnected'}">
                     <div class="session-header">
                         <span class="session-status">${session.isConnected ? '🟢' : '🔴'}</span>
@@ -588,8 +591,8 @@ async function createServer(port = 3001) {
                     </div>
                 </div>
             `).join('');
-            
-            const html = `
+
+                    const html = `
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>

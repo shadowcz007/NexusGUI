@@ -1,75 +1,78 @@
 {
-    "name": "nexusgui",
-    "version": "0.1.0",
-    "description": "通过 MCP 传递 GUI 定义，实现 AI 生成界面，桌面端渲染",
-    "type": "commonjs",
-    "main": "src/main/main.js",
-    "scripts": {
-        "start": "electron .",
-        "start-with-window": "electron . --show-main-window",
-        "dev": "electron . --dev",
-        "build": "electron-builder",
-        "test": "jest"
+  "name": "nexusgui",
+  "version": "0.1.0",
+  "description": "通过 MCP 传递 GUI 定义，实现 AI 生成界面，桌面端渲染",
+  "type": "commonjs",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "start-with-window": "electron . --show-main-window",
+    "dev": "electron . --dev",
+    "build": "electron-builder",
+    "test": "jest",
+    "test:mcp-panel": "electron src/mcp/mcp_exe/test/mcp-panel-test.js"
+  },
+  "keywords": [
+    "electron",
+    "mcp",
+    "ai",
+    "gui",
+    "dynamic"
+  ],
+  "author": "shadow",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^27.0.0",
+    "electron-builder": "^24.6.4",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^30.0.5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^0.4.0",
+    "cors": "^2.8.5",
+    "electron-store": "^10.1.0",
+    "eventsource": "^4.0.0",
+    "express": "^4.21.2",
+    "html-to-markdown": "^1.0.0",
+    "mcp_exe": "^0.12.0",
+    "node-fetch": "^3.3.2",
+    "os-utils": "^0.0.14",
+    "turndown": "^7.2.0",
+    "zod": "^3.25.76"
+  },
+  "build": {
+    "appId": "com.nexusgui.app",
+    "productName": "NexusGUI",
+    "asar": false,
+    "directories": {
+      "output": "dist"
     },
-    "keywords": [
-        "electron",
-        "mcp",
-        "ai",
-        "gui",
-        "dynamic"
+    "files": [
+      "src/main/**/*",
+      "src/config/settings.js",
+      "src/renderer/renderer.js",
+      "src/renderer/index.html",
+      "src/renderer/styles.css",
+      "src/i18n/**/*",
+      "src/mcp/sse/server.js",
+      "src/mcp/sse/wrapper.js",
+      "src/mcp/sse/transport.js",
+      "src/mcp/sse/tools/**/*",
+      "src/mcp/sse/schemas/**/*",
+      "src/mcp/sse/utils/**/*",
+      "src/mcp/sse/validators/**/*",
+      "src/mcp/sse/MIGRATION.md",
+      "src/mcp/stdio/server.mjs",
+      "src/mcp/stdio/wrapper.js",
+      "src/mcp/mcp_exe/**/*",
+      "assets/**/*",
+      "package.json"
     ],
-    "author": "shadow",
-    "license": "MIT",
-    "devDependencies": {
-        "electron": "^27.0.0",
-        "electron-builder": "^24.6.4",
-        "jest": "^29.7.0",
-        "jest-environment-jsdom": "^30.0.5"
-    },
-    "dependencies": {
-        "@modelcontextprotocol/sdk": "^0.4.0",
-        "cors": "^2.8.5",
-        "electron-store": "^10.1.0",
-        "eventsource": "^4.0.0",
-        "express": "^4.21.2",
-        "html-to-markdown": "^1.0.0",
-        "node-fetch": "^3.3.2",
-        "os-utils": "^0.0.14",
-        "turndown": "^7.2.0",
-        "zod": "^3.25.76"
-    },
-    "build": {
-        "appId": "com.nexusgui.app",
-        "productName": "NexusGUI",
-        "asar": false,
-        "directories": {
-            "output": "dist"
-        },
-        "files": [
-            "src/main/**/*",
-            "src/config/settings.js",
-            "src/renderer/renderer.js",
-            "src/renderer/index.html",
-            "src/renderer/styles.css",
-            "src/i18n/**/*",
-            "src/mcp/sse/server.js",
-            "src/mcp/sse/wrapper.js",
-            "src/mcp/sse/transport.js",
-            "src/mcp/sse/tools/**/*",
-            "src/mcp/sse/schemas/**/*",
-            "src/mcp/sse/utils/**/*",
-            "src/mcp/sse/validators/**/*",
-            "src/mcp/sse/MIGRATION.md",
-            "src/mcp/stdio/server.mjs",
-            "src/mcp/stdio/wrapper.js",
-            "assets/**/*",
-            "package.json"
-        ],
-        "mac": {
-            "category": "public.app-category.developer-tools",
-            "identity": null,
-            "gatekeeperAssess": false,
-            "hardenedRuntime": false
-        }
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false
     }
+  }
 }

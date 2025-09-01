@@ -48,6 +48,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
     resetSettings: () => ipcRenderer.invoke('reset-settings'),
 
+    // MCP 服务器控制
+    startMCPServer: () => ipcRenderer.invoke('start-mcp-server'),
+    stopMCPServer: () => ipcRenderer.invoke('stop-mcp-server'),
+    restartMCPServer: () => ipcRenderer.invoke('restart-mcp-server'),
+    getMCPServerStatus: () => ipcRenderer.invoke('get-mcp-server-status'),
+    saveMCPConfig: (config) => ipcRenderer.invoke('save-mcp-config', config),
+
+    // MCP 配置文件
+    getMCPDefaultConfig: () => ipcRenderer.invoke('get-mcp-default-config'),
+    getMCPUserConfig: () => ipcRenderer.invoke('get-mcp-user-config'),
+    getMCPExampleConfig: () => ipcRenderer.invoke('get-mcp-example-config'),
+
     // 通用 invoke 方法（用于向后兼容）
     invoke: (channel, ...args) => {
         // 定义允许的通道列表
@@ -63,7 +75,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
             'set-locale',
             'get-translation',
             'get-supported-locales',
-            'show-item-in-folder'
+            'show-item-in-folder',
+            'start-mcp-server',
+            'stop-mcp-server',
+            'restart-mcp-server',
+            'get-mcp-server-status',
+            'save-mcp-config',
+            'get-mcp-default-config',
+            'get-mcp-user-config',
+            'get-mcp-example-config'
         ];
 
         if (validChannels.includes(channel)) {
@@ -81,14 +101,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 // 在页面加载完成后初始化 i18n
 window.addEventListener('DOMContentLoaded', () => {
-    setTimeout(async () => {
+    setTimeout(async() => {
 
         try {
             // 检查 electronAPI 是否可用
             if (!window.electronAPI || typeof window.electronAPI.getCurrentLocale !== 'function') {
                 console.error('electronAPI 不可用或 getCurrentLocale 方法不存在');
+                console.log(window.electronAPI);
                 return;
             }
+            console.log('electronAPI 可用');
 
             // 获取当前语言，添加超时处理
             const currentLocale = await Promise.race([
@@ -128,7 +150,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // 提供全局翻译函数
-window.t = async (key, fallback) => {
+window.t = async(key, fallback) => {
     try {
         // 检查 electronAPI 是否可用
         if (!window.electronAPI || typeof window.electronAPI.t !== 'function') {
@@ -152,7 +174,7 @@ window.t = async (key, fallback) => {
 };
 
 // 提供表单数据获取函数
-window.getFormData = function () {
+window.getFormData = function() {
     const formData = {};
 
     // 获取所有表单

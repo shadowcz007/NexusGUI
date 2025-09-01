@@ -5,8 +5,11 @@ const i18n = require('../i18n');
 const { serviceManager } = require('./managers/ServiceManager');
 const { generateStartupWizardHTML } = require('./html');
 
+// 引入 MCP 服务器管理器
+const mcpServerManager = require('../mcp/mcp_exe/server');
+
 // 提前注册 i18n 相关 IPC 处理器，确保在任何窗口创建前就可用
-ipcMain.handle('get-current-locale', async () => {
+ipcMain.handle('get-current-locale', async() => {
     try {
         // 确保 i18n 已初始化
         if (!i18n.getCurrentLocale() || i18n.getCurrentLocale() === 'en-US') {
@@ -19,7 +22,7 @@ ipcMain.handle('get-current-locale', async () => {
     }
 });
 
-ipcMain.handle('set-locale', async (event, locale) => {
+ipcMain.handle('set-locale', async(event, locale) => {
     try {
         const success = await i18n.setLocale(locale);
         if (success) {
@@ -35,7 +38,7 @@ ipcMain.handle('set-locale', async (event, locale) => {
     }
 });
 
-ipcMain.handle('get-translation', async (event, key, fallback) => {
+ipcMain.handle('get-translation', async(event, key, fallback) => {
     try {
         return i18n.t(key, fallback);
     } catch (error) {
@@ -44,7 +47,7 @@ ipcMain.handle('get-translation', async (event, key, fallback) => {
     }
 });
 
-ipcMain.handle('get-supported-locales', async () => {
+ipcMain.handle('get-supported-locales', async() => {
     try {
         return i18n.getSupportedLocales();
     } catch (error) {
@@ -54,18 +57,18 @@ ipcMain.handle('get-supported-locales', async () => {
 });
 
 // 暴露给全局，供 MCP 服务器调用（保持向后兼容）
-global.createWindow = async (config = {}) => {
+global.createWindow = async(config = {}) => {
     const logger = serviceManager.getService('logger').createModuleLogger('GLOBAL');
     const errorHandler = serviceManager.getService('errorHandler');
-    
+
     logger.info('通过 MCP 调用创建窗口', { config });
-    
+
     try {
         // 确保服务管理器已初始化
         if (!serviceManager.isServiceManagerInitialized()) {
             await serviceManager.initialize();
         }
-        
+
         const windowService = serviceManager.getService('window');
         return await windowService.createWindow(config);
     } catch (error) {
@@ -130,7 +133,7 @@ async function getRenderGUITool() {
         if (!serviceManager.isServiceManagerInitialized()) {
             await serviceManager.initialize();
         }
-        
+
         const serverService = serviceManager.getService('server');
         if (serverService) {
             const renderGUITool = serverService.getRenderGUITool();
@@ -151,18 +154,18 @@ async function getRenderGUITool() {
 async function showAppWindow() {
     try {
         console.log('🔍 检查是否有缓存的 render-gui HTML...');
-        
+
         // 直接从全局获取缓存
         const cachedHtml = global.renderGuiCache;
-        
+
         if (cachedHtml) {
             console.log('✅ 找到缓存的 HTML，显示缓存的 GUI');
             console.log('📄 缓存详情:', {
-                title: cachedHtml.config?.title,
-                htmlLength: cachedHtml.html?.length,
+                title: cachedHtml.config ?.title,
+                htmlLength: cachedHtml.html ?.length,
                 timestamp: cachedHtml.timestamp
             });
-            
+
             // 直接使用全局 createWindow 创建窗口
             const windowConfig = {
                 type: 'dynamic',
@@ -174,14 +177,14 @@ async function showAppWindow() {
                 reuseWindow: true,
                 waitForResult: false
             };
-            
+
             await global.createWindow(windowConfig);
             console.log('🎉 缓存的 GUI 已成功显示');
             return;
         }
-        
+
         console.log('ℹ️ 没有找到缓存的 HTML，不显示任何窗口');
-        
+
     } catch (error) {
         console.error('❌ 显示应用窗口失败:', error);
     }
@@ -191,7 +194,7 @@ async function showAppWindow() {
 global.showAppWindow = showAppWindow;
 
 // 全局函数：向当前活动窗口注入 JavaScript 代码
-global.injectJsToWindow = async (config) => {
+global.injectJsToWindow = async(config) => {
     const { code, waitForResult, params } = config;
 
     console.log('🔧 主进程：准备注入 JavaScript 代码');
@@ -262,23 +265,23 @@ global.injectJsToWindow = async (config) => {
 };
 
 // 应用启动
-app.whenReady().then(async () => {
+app.whenReady().then(async() => {
     let logger, errorHandler;
-    
+
     try {
         // 初始化 i18n
         await i18n.initialize();
         console.log('✅ i18n 初始化完成');
-        
+
         // 启动所有服务
         await serviceManager.startAll();
-        
+
         // 获取日志和错误处理服务
         logger = serviceManager.getService('logger').createModuleLogger('MAIN');
         errorHandler = serviceManager.getService('errorHandler');
-        
+
         logger.info('应用启动中...');
-        
+
         // 检查是否是首次运行
         const isFirstRun = settingsManager.getSetting('startup.firstRun');
         if (isFirstRun) {
@@ -308,7 +311,7 @@ app.whenReady().then(async () => {
     }
 
     // macOS 激活事件
-    app.on('activate', async () => {
+    app.on('activate', async() => {
         if (process.platform === 'darwin') {
             logger.info('macOS 应用激活事件触发');
             await showAppWindow();
@@ -319,7 +322,7 @@ app.whenReady().then(async () => {
 // 显示首次运行向导窗口
 async function showStartupWizard() {
     console.log('🔍 显示首次运行向导...');
-    
+
     try {
         // 创建向导窗口
         const wizardWindow = new BrowserWindow({
@@ -358,7 +361,7 @@ app.on('window-all-closed', () => {
     try {
         const trayService = serviceManager.getService('tray');
         const logger = serviceManager.getService('logger').createModuleLogger('MAIN');
-        
+
         if (trayService.exists()) {
             logger.info('所有窗口已关闭，应用继续在托盘中运行');
             return;
@@ -381,11 +384,11 @@ app.on('window-all-closed', () => {
 });
 
 // 应用退出前清理
-app.on('before-quit', async () => {
+app.on('before-quit', async() => {
     try {
         const logger = serviceManager.getService('logger').createModuleLogger('MAIN');
         const errorHandler = serviceManager.getService('errorHandler');
-        
+
         logger.info('应用正在退出，清理资源...');
         await serviceManager.stopAll();
         logger.info('应用正在退出，资源已清理');
@@ -402,8 +405,86 @@ app.on('before-quit', async () => {
     }
 });
 
+// MCP 服务器相关 IPC 处理
+ipcMain.handle('start-mcp-server', async() => {
+    try {
+        await mcpServerManager.start();
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('stop-mcp-server', async() => {
+    try {
+        await mcpServerManager.stop();
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('restart-mcp-server', async() => {
+    try {
+        await mcpServerManager.restart();
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-mcp-server-status', async() => {
+    return mcpServerManager.getStatus();
+});
+
+ipcMain.handle('save-mcp-config', async(event, config) => {
+    try {
+        const configManager = require('../mcp/mcp_exe/integration/ConfigManager');
+        const manager = new configManager();
+        manager.saveUserConfig(config);
+        return { success: true };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// MCP 配置文件相关 IPC 处理
+ipcMain.handle('get-mcp-default-config', async() => {
+    try {
+        const configManager = require('../mcp/mcp_exe/integration/ConfigManager');
+        const manager = new configManager();
+        const config = manager.getUserConfig();
+        return { success: true, config };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-mcp-user-config', async() => {
+    try {
+        const configManager = require('../mcp/mcp_exe/integration/ConfigManager');
+        const manager = new configManager();
+        const config = manager.getUserConfig();
+        return { success: true, config };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+ipcMain.handle('get-mcp-example-config', async() => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const exampleConfigPath = path.join(__dirname, '../mcp/mcp_exe/config/example-mcp.json');
+        const config = JSON.parse(fs.readFileSync(exampleConfigPath, 'utf8'));
+        return { success: true, config };
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
 // IPC 处理程序
-ipcMain.handle('mcp-result', async (event, result) => {
+ipcMain.handle('mcp-result', async(event, result) => {
     console.log('📤 收到来自渲染进程的结果:', result);
     // 这里可以将结果发送回 MCP 客户端
     return { success: true };
@@ -411,7 +492,7 @@ ipcMain.handle('mcp-result', async (event, result) => {
 
 
 // 添加在文件管理器中显示文件的处理程序
-ipcMain.handle('show-item-in-folder', async (event, filePath) => {
+ipcMain.handle('show-item-in-folder', async(event, filePath) => {
     try {
         const { shell } = require('electron');
         shell.showItemInFolder(filePath);
@@ -424,7 +505,7 @@ ipcMain.handle('show-item-in-folder', async (event, filePath) => {
 });
 
 // 添加在默认浏览器中打开 URL 的处理程序
-ipcMain.handle('open-external', async (event, url) => {
+ipcMain.handle('open-external', async(event, url) => {
     try {
         const { shell } = require('electron');
         await shell.openExternal(url);
@@ -437,7 +518,7 @@ ipcMain.handle('open-external', async (event, url) => {
 });
 
 // 处理窗口结果（用于同步等待）
-ipcMain.handle('window-result', async (event, result) => {
+ipcMain.handle('window-result', async(event, result) => {
     console.log('📤 收到窗口结果:', result);
 
     // 获取发送结果的窗口
@@ -464,18 +545,18 @@ ipcMain.on('open-dev-tools', (event) => {
 });
 
 // 处理窗口固定/取消固定请求
-ipcMain.on('toggle-window-pin', async (event, isPinned) => {
+ipcMain.on('toggle-window-pin', async(event, isPinned) => {
     try {
         console.log('📥 收到窗口固定状态切换请求:', isPinned);
-        
+
         // 获取发送事件的窗口
         const window = BrowserWindow.fromWebContents(event.sender);
-        
+
         if (window) {
             // 更新窗口的固定状态
             window.isPinned = isPinned;
             console.log(`📌 窗口固定状态已更新: ${isPinned}`);
-            
+
             // 发送响应
             event.reply('window-pin-toggled', { success: true, isPinned });
         } else {
@@ -489,28 +570,28 @@ ipcMain.on('toggle-window-pin', async (event, isPinned) => {
 });
 
 // 处理首次运行向导完成事件
-ipcMain.on('startup-wizard-complete', async (event, mode) => {
+ipcMain.on('startup-wizard-complete', async(event, mode) => {
     console.log('📥 收到来自向导的选择:', mode);
-    
+
     try {
         // 更新设置
         settingsManager.setSetting('startup.mode', mode);
         settingsManager.setSetting('startup.firstRun', false);
-        
+
         // 获取发送事件的窗口
         const wizardWindow = BrowserWindow.fromWebContents(event.sender);
-        
+
         // 关闭向导窗口
         if (wizardWindow) {
             wizardWindow.close();
         }
-        
+
         // 根据选择的模式启动相应功能
         if (mode === 'window') {
             const windowService = serviceManager.getService('window');
             await windowService.showMCPConsole();
         }
-        
+
         console.log('✅ 首次运行向导已完成，设置已保存');
     } catch (error) {
         console.error('❌ 处理向导完成事件失败:', error);
@@ -518,7 +599,7 @@ ipcMain.on('startup-wizard-complete', async (event, mode) => {
 });
 
 // 添加窗口状态检查
-ipcMain.handle('check-window-status', async () => {
+ipcMain.handle('check-window-status', async() => {
     const windows = BrowserWindow.getAllWindows();
     return {
         windowCount: windows.length,
@@ -533,13 +614,13 @@ ipcMain.handle('check-window-status', async () => {
 });
 
 // MCP 工具相关 IPC 处理程序
-ipcMain.handle('get-available-tools', async () => {
+ipcMain.handle('get-available-tools', async() => {
     try {
         // 确保服务管理器已初始化
         if (!serviceManager.isServiceManagerInitialized()) {
             await serviceManager.initialize();
         }
-        
+
         const serverService = serviceManager.getService('server');
         if (!serverService || !serverService.sseServerInstance || !serverService.sseServerInstance.toolRegistry) {
             return {
@@ -548,10 +629,10 @@ ipcMain.handle('get-available-tools', async () => {
                 tools: []
             };
         }
-        
+
         const toolRegistry = serverService.sseServerInstance.toolRegistry;
         const tools = toolRegistry.getToolSchemas();
-        
+
         return {
             success: true,
             tools: tools,
@@ -567,29 +648,29 @@ ipcMain.handle('get-available-tools', async () => {
     }
 });
 
-ipcMain.handle('execute-mcp-tool', async (event, toolName, params) => {
+ipcMain.handle('execute-mcp-tool', async(event, toolName, params) => {
     try {
         console.log(`🔧 执行工具: ${toolName}`, params);
-        
+
         // 确保服务管理器已初始化
         if (!serviceManager.isServiceManagerInitialized()) {
             await serviceManager.initialize();
         }
-        
+
         const serverService = serviceManager.getService('server');
         if (!serverService || !serverService.sseServerInstance || !serverService.sseServerInstance.toolRegistry) {
             throw new Error('工具注册器未初始化');
         }
-        
+
         const toolRegistry = serverService.sseServerInstance.toolRegistry;
         const startTime = Date.now();
-        
+
         // 执行工具
         const result = await toolRegistry.executeTool(toolName, params);
         const duration = Date.now() - startTime;
-        
+
         console.log(`✅ 工具 ${toolName} 执行成功，耗时: ${duration}ms`);
-        
+
         return {
             success: true,
             tool: toolName,
@@ -600,7 +681,7 @@ ipcMain.handle('execute-mcp-tool', async (event, toolName, params) => {
         };
     } catch (error) {
         console.error(`❌ 工具 ${toolName} 执行失败:`, error);
-        
+
         return {
             success: false,
             tool: toolName,
@@ -613,7 +694,7 @@ ipcMain.handle('execute-mcp-tool', async (event, toolName, params) => {
 });
 
 // 设置管理 IPC 处理程序
-ipcMain.handle('get-settings', async () => {
+ipcMain.handle('get-settings', async() => {
     try {
         return {
             success: true,
@@ -628,7 +709,7 @@ ipcMain.handle('get-settings', async () => {
     }
 });
 
-ipcMain.handle('save-settings', async (event, newSettings) => {
+ipcMain.handle('save-settings', async(event, newSettings) => {
     try {
         console.log('📥 收到设置保存请求:', JSON.stringify(newSettings, null, 2));
 
@@ -655,21 +736,67 @@ ipcMain.handle('save-settings', async (event, newSettings) => {
         const success = settingsManager.updateSettings(newSettings);
 
         if (success) {
-            // 如果端口发生变化，需要重启服务器
+            let serverRestarted = false;
+            let mcpServerRestarted = false;
+
+            // 检查SSE服务器端口变化
             const serverService = serviceManager.getService('server');
             const appStateService = serviceManager.getService('appState');
-            
+
             const oldPort = appStateService.getState('mcpServerInfo').port;
             const newPort = settingsManager.getSetting('server.port');
 
             if (oldPort !== newPort) {
-                console.log(`🔄 端口从 ${oldPort} 更改为 ${newPort}，需要重启服务器`);
+                console.log(`🔄 SSE服务器端口从 ${oldPort} 更改为 ${newPort}，需要重启服务器`);
 
                 try {
                     await serverService.restart(newPort);
-                    console.log(`✅ MCP 服务器已在新端口 ${newPort} 上重启`);
+                    console.log(`✅ SSE服务器已在新端口 ${newPort} 上重启`);
+                    serverRestarted = true;
                 } catch (error) {
-                    console.error('❌ 重启服务器失败:', error);
+                    console.error('❌ 重启SSE服务器失败:', error);
+                }
+            }
+
+            // 检查MCP服务器端口变化
+            const mcpServerManager = require('../mcp/mcp_exe/server');
+            const oldMcpPort = mcpServerManager.port;
+            const newMcpPort = settingsManager.getSetting('mcp.port');
+
+            if (oldMcpPort !== newMcpPort) {
+                console.log(`🔄 MCP服务器端口从 ${oldMcpPort} 更改为 ${newMcpPort}，需要重启MCP服务器`);
+
+                try {
+                    // 更新MCP服务器端口
+                    mcpServerManager.updatePort(newMcpPort);
+
+                    // 如果MCP服务器正在运行，重启它
+                    if (mcpServerManager.isRunning) {
+                        await mcpServerManager.restart();
+                        console.log(`✅ MCP服务器已在新端口 ${newMcpPort} 上重启`);
+                        mcpServerRestarted = true;
+                    }
+                } catch (error) {
+                    console.error('❌ 重启MCP服务器失败:', error);
+                }
+            }
+
+            // 检查MCP配置变化
+            const oldMcpConfig = settingsManager.getSetting('mcp.config');
+            const newMcpConfig = newSettings['mcp.config'];
+
+            if (newMcpConfig && oldMcpConfig !== newMcpConfig) {
+                console.log('🔄 MCP配置已更新，需要重启MCP服务器');
+
+                try {
+                    // 如果MCP服务器正在运行，重启它以应用新配置
+                    if (mcpServerManager.isRunning) {
+                        await mcpServerManager.restart();
+                        console.log('✅ MCP服务器已重启以应用新配置');
+                        mcpServerRestarted = true;
+                    }
+                } catch (error) {
+                    console.error('❌ 重启MCP服务器以应用新配置失败:', error);
                 }
             }
 
@@ -677,7 +804,9 @@ ipcMain.handle('save-settings', async (event, newSettings) => {
                 success: true,
                 message: '设置已保存',
                 backupPath,
-                serverRestarted: oldPort !== newPort
+                serverRestarted: serverRestarted || mcpServerRestarted,
+                serverRestarted: serverRestarted,
+                mcpServerRestarted: mcpServerRestarted
             };
         } else {
             return {
@@ -694,7 +823,7 @@ ipcMain.handle('save-settings', async (event, newSettings) => {
     }
 });
 
-ipcMain.handle('reset-settings', async () => {
+ipcMain.handle('reset-settings', async() => {
     try {
         const backupPath = settingsManager.backupSettings();
         const success = settingsManager.resetToDefaults();
@@ -731,7 +860,7 @@ ipcMain.handle('reset-settings', async () => {
     }
 });
 
-ipcMain.handle('get-form-data', async (event, formSelector) => {
+ipcMain.handle('get-form-data', async(event, formSelector) => {
     // 获取表单数据的辅助方法
     return new Promise((resolve) => {
         event.sender.executeJavaScript(`
@@ -749,7 +878,7 @@ ipcMain.handle('get-form-data', async (event, formSelector) => {
 });
 
 // 命令行参数处理（支持 -gui 参数）
-(async () => {
+(async() => {
     if (process.argv.includes('-gui')) {
         const guiIndex = process.argv.indexOf('-gui');
         const guiName = process.argv[guiIndex + 1];
@@ -758,9 +887,10 @@ ipcMain.handle('get-form-data', async (event, formSelector) => {
             // 尝试加载本地 GUI 定义文件
             const guiPath = path.join(__dirname, 'guis', `${guiName}.json`);
             try {
-                const { readFileSync } = await import('fs');
+                const { readFileSync } = await
+                import ('fs');
                 const guiConfig = JSON.parse(readFileSync(guiPath, 'utf8'));
-                app.whenReady().then(async () => {
+                app.whenReady().then(async() => {
                     try {
                         if (!serviceManager.isServiceManagerInitialized()) {
                             await serviceManager.initialize();

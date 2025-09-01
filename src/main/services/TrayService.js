@@ -59,12 +59,25 @@ class TrayService {
      * @returns {nativeImage} 托盘图标
      */
     createTrayIcon() {
-        const iconPath = path.join(__dirname, '../../assets/tray-icon.png');
+        // 首先尝试使用 MCP 版本的图标
+        const mcpIconPath = path.join(__dirname, '../../assets/tray-icon-mcp.png');
+        const defaultIconPath = path.join(__dirname, '../../assets/tray-icon.png');
 
         try {
-            const trayIcon = nativeImage.createFromPath(iconPath);
-            if (!trayIcon.isEmpty()) {
-                return trayIcon;
+            // 尝试加载 MCP 图标
+            if (fs.existsSync(mcpIconPath)) {
+                const trayIcon = nativeImage.createFromPath(mcpIconPath);
+                if (!trayIcon.isEmpty()) {
+                    return trayIcon;
+                }
+            }
+
+            // 如果 MCP 图标不存在，尝试加载默认图标
+            if (fs.existsSync(defaultIconPath)) {
+                const trayIcon = nativeImage.createFromPath(defaultIconPath);
+                if (!trayIcon.isEmpty()) {
+                    return trayIcon;
+                }
             }
         } catch (error) {
             this.logger.debug('使用系统默认托盘图标');
@@ -83,7 +96,7 @@ class TrayService {
      */
     setupEventListeners() {
         // 双击托盘图标显示缓存的 GUI（如果有的话）
-        this.tray.on('double-click', async () => {
+        this.tray.on('double-click', async() => {
             this.logger.debug('托盘图标双击');
             try {
                 if (global.showAppWindow) {
@@ -126,8 +139,7 @@ class TrayService {
         const renderHistory = this.appStateService.getRenderHistory();
 
         // 构建工具窗口子菜单
-        const toolsSubmenu = Menu.buildFromTemplate([
-            {
+        const toolsSubmenu = Menu.buildFromTemplate([{
                 label: '🔧 调试信息窗口',
                 type: 'normal',
                 enabled: serverInfo.status === 'running',
@@ -162,7 +174,8 @@ class TrayService {
                 type: 'normal',
                 enabled: serverInfo.status === 'running',
                 click: () => this.windowService.showAPITestTool()
-            }
+            },
+            { type: 'separator' }
         ]);
 
         // 构建历史记录子菜单
@@ -183,28 +196,10 @@ class TrayService {
             });
         }
 
-        // 构建快速测试子菜单
-        const quickTestSubmenu = Menu.buildFromTemplate([
-            {
-                label: '基础测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('basic')
-            },
-            {
-                label: '表单测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('form')
-            },
-            {
-                label: '仪表板测试界面',
-                type: 'normal',
-                click: () => this.runQuickTest('dashboard')
-            }
-        ]);
+
 
         // 构建设置子菜单
-        const settingsSubmenu = Menu.buildFromTemplate([
-            {
+        const settingsSubmenu = Menu.buildFromTemplate([{
                 label: startupMode === 'tray' ? '🖥️ 切换到主窗口模式' : '📌 切换到托盘模式',
                 type: 'normal',
                 click: () => this.toggleStartupMode()
@@ -222,8 +217,7 @@ class TrayService {
             }
         ]);
 
-        const contextMenu = Menu.buildFromTemplate([
-            {
+        const contextMenu = Menu.buildFromTemplate([{
                 label: `NexusGUI ${serverStatus}`,
                 type: 'normal',
                 enabled: false
@@ -250,11 +244,7 @@ class TrayService {
                 type: 'submenu',
                 submenu: Menu.buildFromTemplate(historySubmenu)
             },
-            {
-                label: '🧪 快速测试',
-                type: 'submenu',
-                submenu: quickTestSubmenu
-            },
+
             { type: 'separator' },
             {
                 label: '🔄 刷新状态',
@@ -470,7 +460,7 @@ class TrayService {
             // 尝试从全局缓存获取（向后兼容）
             if (global.renderGuiCache &&
                 global.renderGuiCache.config.title === historyItem.config.title) {
-                
+
                 const windowConfig = {
                     type: 'dynamic',
                     title: global.renderGuiCache.config.title,
@@ -534,62 +524,7 @@ class TrayService {
         return `${title.substring(0, frontLength)}...${title.substring(title.length - backLength)}`;
     }
 
-    /**
-     * 运行快速测试
-     * @param {string} testType - 测试类型
-     */
-    async runQuickTest(testType) {
-        try {
-            this.logger.info(`运行快速测试: ${testType}`);
 
-            // 导入测试界面生成函数
-            const { generateTestInterfaceHTML } = require('../html');
-
-            // 生成测试界面HTML
-            const testHtml = generateTestInterfaceHTML(testType);
-
-            // 定义测试界面配置
-            const testConfigs = {
-                'basic': {
-                    title: '基础测试界面',
-                    width: 800,
-                    height: 600
-                },
-                'form': {
-                    title: '表单测试界面',
-                    width: 600,
-                    height: 700
-                },
-                'dashboard': {
-                    title: '仪表板测试界面',
-                    width: 1000,
-                    height: 800
-                }
-            };
-
-            const config = testConfigs[testType] || testConfigs['basic'];
-
-            // 创建窗口配置
-            const windowConfig = {
-                type: 'dynamic',
-                title: config.title,
-                width: config.width,
-                height: config.height,
-                html: testHtml,
-                data: {},
-                callbacks: {},
-                reuseWindow: true,
-                waitForResult: false
-            };
-
-            // 创建窗口
-            await global.createWindow(windowConfig);
-
-            this.logger.info(`快速测试界面已渲染: ${config.title}`);
-        } catch (error) {
-            this.logger.error('运行快速测试失败', { error: error.message });
-        }
-    }
 }
 
 module.exports = { TrayService };

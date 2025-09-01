@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "nexusgui-core": {
+      "url": "http://127.0.0.1:3000"
+    }
+  },
+  "serverInfo": {
+    "serverName": "nexusgui-mcp-server",
+    "version": "1.0.0",
+    "description": "NexusGUI MCP 服务器",
+    "author": "shadow"
+  },
+  "tools": [],
+  "namespace": ".",
+  "toolChains": []
+}

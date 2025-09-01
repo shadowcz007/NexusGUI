@@ -13,7 +13,7 @@ function getAppDataDir() {
         return app.getPath('userData');
     } catch (error) {
         // 非Electron环境，使用用户主目录
-        return path.join(os.homedir(), '.'+packageJson.name);
+        return path.join(os.homedir(), '.' + packageJson.name);
     }
 }
 
@@ -24,6 +24,25 @@ const DEFAULT_SETTINGS = {
         enableCors: true,
         maxConnections: 100,
         sessionTimeout: 300
+    },
+    mcp: {
+        port: 3001,
+        config: {
+            "mcpServers": {
+                "nexusgui-core": {
+                    "url": "http://127.0.0.1:3000"
+                }
+            },
+            "serverInfo": {
+                "serverName": "nexusgui-mcp-server",
+                "version": "1.0.0",
+                "description": "NexusGUI MCP 服务器",
+                "author": "shadow"
+            },
+            "tools": [],
+            "namespace": ".",
+            "toolChains": []
+        }
     },
     logging: {
         enableVerbose: true,
@@ -38,14 +57,14 @@ const DEFAULT_SETTINGS = {
     },
     history: {
         saveHtmlContent: true, // 是否在历史记录中保存HTML内容
-        maxHistoryItems: 10    // 最大历史记录数量
+        maxHistoryItems: 10 // 最大历史记录数量
     },
     // LLM配置
     llm: {
-        apiUrl: '',           // LLM API URL
-        apiKey: '',           // LLM API Key
-        model: '',            // 使用的模型名称
-        enabled: false        // 是否启用LLM功能
+        apiUrl: '', // LLM API URL
+        apiKey: '', // LLM API Key
+        model: '', // 使用的模型名称
+        enabled: false // 是否启用LLM功能
     },
     // 启动模式设置
     startup: {
@@ -94,19 +113,19 @@ class SettingsManager {
                 console.log('📊 当前设置:', this.settings);
             } else {
                 // 首次运行，使用默认设置
-                this.settings = { ...DEFAULT_SETTINGS };
+                this.settings = {...DEFAULT_SETTINGS };
                 this.saveSettings();
                 console.log('✅ 使用默认设置并保存到文件');
             }
         } catch (error) {
             console.error('❌ 加载设置失败，使用默认设置:', error);
-            this.settings = { ...DEFAULT_SETTINGS };
+            this.settings = {...DEFAULT_SETTINGS };
         }
     }
 
     // 深度合并设置对象
     mergeSettings(defaultSettings, userSettings) {
-        const merged = { ...defaultSettings };
+        const merged = {...defaultSettings };
 
         for (const key in userSettings) {
             if (userSettings.hasOwnProperty(key)) {
@@ -137,7 +156,7 @@ class SettingsManager {
 
     // 获取所有设置
     getAllSettings() {
-        return { ...this.settings };
+        return {...this.settings };
     }
 
     // 获取特定设置
@@ -196,7 +215,7 @@ class SettingsManager {
     // 重置为默认设置
     resetToDefaults() {
         try {
-            this.settings = { ...DEFAULT_SETTINGS };
+            this.settings = {...DEFAULT_SETTINGS };
             this.saveSettings();
             console.log('✅ 设置已重置为默认值');
             return true;
@@ -246,34 +265,62 @@ class SettingsManager {
         console.log('🔍 验证设置内容:', JSON.stringify(validationSettings, null, 2));
 
         // 验证服务器端口
-        const port = validationSettings.server?.port;
+        const port = validationSettings.server ?.port;
         if (port === undefined || port === null || port < 1000 || port > 65535) {
             errors.push(`服务器端口必须在1000-65535之间，当前值: ${port}`);
         }
 
         // 验证最大连接数
-        const maxConnections = validationSettings.server?.maxConnections;
+        const maxConnections = validationSettings.server ?.maxConnections;
         if (maxConnections === undefined || maxConnections === null || maxConnections < 1 || maxConnections > 10000) {
             errors.push(`最大连接数必须在1-10000之间，当前值: ${maxConnections}`);
         }
 
         // 验证会话超时
-        const sessionTimeout = validationSettings.server?.sessionTimeout;
+        const sessionTimeout = validationSettings.server ?.sessionTimeout;
         if (sessionTimeout === undefined || sessionTimeout === null || sessionTimeout < 60 || sessionTimeout > 7200) {
             errors.push(`会话超时必须在60-7200秒之间，当前值: ${sessionTimeout}`);
         }
 
         // 验证日志级别
         const validLogLevels = ['debug', 'info', 'warn', 'error'];
-        const logLevel = validationSettings.logging?.level;
+        const logLevel = validationSettings.logging ?.level;
         if (!logLevel || !validLogLevels.includes(logLevel)) {
             errors.push(`日志级别必须是: ${validLogLevels.join(', ')} 之一，当前值: ${logLevel}`);
         }
 
         // 验证托盘菜单标题最大长度
-        const trayTitleMaxLength = validationSettings.ui?.trayMenuTitleMaxLength;
+        const trayTitleMaxLength = validationSettings.ui ?.trayMenuTitleMaxLength;
         if (trayTitleMaxLength !== undefined && (trayTitleMaxLength < 15 || trayTitleMaxLength > 60)) {
             errors.push(`托盘菜单标题最大长度必须在15-60之间，当前值: ${trayTitleMaxLength}`);
+        }
+
+        // 验证MCP服务器端口
+        const mcpPort = validationSettings.mcp ?.port;
+        if (mcpPort !== undefined && (mcpPort < 1000 || mcpPort > 65535)) {
+            errors.push(`MCP服务器端口必须在1000-65535之间，当前值: ${mcpPort}`);
+        }
+
+        // 验证MCP配置格式
+        const mcpConfig = validationSettings.mcp ?.config;
+        if (mcpConfig !== undefined) {
+            try {
+                // 如果是字符串，尝试解析为JSON
+                const configObj = typeof mcpConfig === 'string' ? JSON.parse(mcpConfig) : mcpConfig;
+
+                // 验证必需的字段
+                if (!configObj.mcpServers) {
+                    errors.push('MCP配置缺少必需的mcpServers字段');
+                }
+                if (!configObj.serverInfo) {
+                    errors.push('MCP配置缺少必需的serverInfo字段');
+                }
+                if (!configObj.serverInfo.serverName) {
+                    errors.push('MCP配置的serverInfo中缺少serverName字段');
+                }
+            } catch (error) {
+                errors.push(`MCP配置JSON格式错误: ${error.message}`);
+            }
         }
 
         console.log('🔍 验证结果:', errors.length === 0 ? '通过' : '失败');
