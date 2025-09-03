@@ -1,5 +1,6 @@
 const { Tray, Menu, nativeImage, app } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { settingsManager } = require('../../config/settings.js');
 
 /**
@@ -25,6 +26,32 @@ class TrayService {
         });
 
         this.logger.info('托盘服务已初始化');
+    }
+
+    /**
+     * 获取MCP服务器状态信息
+     */
+    getMCPServerStatus() {
+        try {
+            // 尝试从全局获取MCP服务器管理器
+            if (global.mcpServerManager) {
+                return global.mcpServerManager.getStatus();
+            }
+
+            // 如果无法获取实时状态，返回配置中的端口信息
+            return {
+                isRunning: false,
+                port: settingsManager.getSetting('mcp.port') || 3001,
+                config: null
+            };
+        } catch (error) {
+            this.logger.debug('无法获取MCP服务器状态，使用配置信息');
+            return {
+                isRunning: false,
+                port: settingsManager.getSetting('mcp.port') || 3001,
+                config: null
+            };
+        }
     }
 
     /**
@@ -131,6 +158,12 @@ class TrayService {
         const activeSessions = networkStatus.activeSessions || 0;
         const isConnected = networkStatus.connected || false;
         const connectionStatus = isConnected ? '🔗 已连接' : '❌ 未连接';
+
+        // 获取MCP服务器状态信息
+        const mcpStatus = this.getMCPServerStatus();
+        const mcpPort = mcpStatus.port || settingsManager.getSetting('mcp.port') || 3001;
+        const mcpServerStatus = mcpStatus.isRunning ? '🟢 运行中' : '🔴 已停止';
+
         // 获取启动模式设置
         const startupMode = settingsManager.getSetting('startup.mode') || 'tray';
         // 获取自动窗口管理设置
@@ -223,7 +256,12 @@ class TrayService {
                 enabled: false
             },
             {
-                label: `端口: ${serverPort} | 会话: ${activeSessions} | ${connectionStatus}`,
+                label: `SSE端口: ${serverPort} | MCP端口: ${mcpPort} | 会话: ${activeSessions} | ${connectionStatus}`,
+                type: 'normal',
+                enabled: false
+            },
+            {
+                label: `MCP服务器: ${mcpServerStatus}`,
                 type: 'normal',
                 enabled: false
             },
